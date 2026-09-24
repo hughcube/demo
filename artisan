@@ -13,6 +13,8 @@ require __DIR__.'/vendor/autoload.php';
 /** @var Application $app */
 $app = require_once __DIR__.'/bootstrap/app.php';
 
+// 为了追求 HTTP / 常驻内存请求的极致吞吐与性能，已在 config/app.php 中将 ConsoleSupportServiceProvider 剔除（opt-out）。
+// 此处仅在 CLI 命令行环境下按需单独注册控制台与 Octane 命令行支持。
 $app->register(\Illuminate\Foundation\Providers\ConsoleSupportServiceProvider::class);
 
 $app->register(\HughCube\Laravel\Octane\ServiceProvider::class);

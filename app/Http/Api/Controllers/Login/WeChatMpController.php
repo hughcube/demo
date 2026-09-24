@@ -9,7 +9,7 @@
 
 declare(strict_types=1);
 
-namespace App\Http\App\Controllers\Login;
+namespace App\Http\Api\Controllers\Login;
 
 use App\Enum\UserTypeEnum;
 use App\Models\User;

@@ -24,7 +24,7 @@ return [
     | since RSA and ECDSA use a private/public key combo (See below).
     |
     */
-    'secret' => env('JWT_SECRET', 'rwCPEWc2MyErfiu0rZSAGpDb3Iyts4Ua'),
+    'secret' => env('JWT_SECRET'),
     /*
     |--------------------------------------------------------------------------
     | JWT Authentication Keys
@@ -99,7 +99,7 @@ return [
     |
     */
 
-    'ttl' => env('JWT_TTL', 999 * 365 * 24 * 60),
+    'ttl' => env('JWT_TTL', 60 * 24 * 30),
 
     /*
     |--------------------------------------------------------------------------

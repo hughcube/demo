@@ -12,4 +12,11 @@ use HughCube\Laravel\Knight\Http\Middleware\RequestSignatureValidate;
 
 class SignatureValidate extends RequestSignatureValidate
 {
+    protected function getOptional(): array
+    {
+        return array_merge(parent::getOptional(), [
+            '/api/login/*',
+            '/api/logon/*',
+        ]);
+    }
 }

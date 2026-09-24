@@ -6,7 +6,7 @@
  * Time: 8:42 下午
  */
 
-namespace App\Http\App\Controllers\Login;
+namespace App\Http\Api\Controllers\Login;
 
 use App\Models\User;
 use HughCube\Laravel\Knight\Database\DB as KnightDB;
@@ -18,7 +18,7 @@ use Throwable;
 use Tymon\JWTAuth\JWT;
 use Tymon\JWTAuth\JWTGuard;
 
-abstract class AAAController extends \App\Http\App\Controllers\AAAController
+abstract class AAAController extends \App\Http\Api\Controllers\AAAController
 {
     /**
      * @throws Throwable
@@ -27,7 +27,15 @@ abstract class AAAController extends \App\Http\App\Controllers\AAAController
     {
         /** @var null|User $user */
         $user = KnightDB::retryOnQueryException(function () {
-            return $this->getOrCreateUser()?->withAccessSecret(Str::random(32));
+            $user = $this->getOrCreateUser();
+            if (null === $user) {
+                return null;
+            }
+
+            $user->withAccessSecret(Str::random(32));
+            $user->resetModelVersion()->save();
+
+            return $user;
         });
 
         if (null === $user) {

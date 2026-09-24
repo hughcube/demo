@@ -20,7 +20,9 @@ return [
 
     'allowed_methods' => ['*'],
 
-    'allowed_origins' => ['*.x4k.net', '*.x4k.cn', 'localhost', '127.0.0.1'],
+    'allowed_origins' => array_filter(
+        explode(',', env('CORS_ALLOWED_ORIGINS', 'localhost,127.0.0.1'))
+    ),
 
     'allowed_origins_patterns' => [],
 

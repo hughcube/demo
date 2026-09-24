@@ -6,75 +6,82 @@ networks:
 
 services:
   app:
-    #image: registry.cn-hangzhou.aliyuncs.com/hughcube/php-demo:app-latest
-    #image: registry.cn-hangzhou.aliyuncs.com/hughcube/php-demo:base-latest
     image: crpi-vrt7o5qsysdzjsbh.cn-shanghai.personal.cr.aliyuncs.com/zycube/demo:base-latest-developer
-    #ports:
-    #    - "${APP_EXPOSE_PORT:-5012}:80"
     user: root:root
-      #user: www-data:www-data
     environment:
-        COMPOSER_ALLOW_SUPERUSER: 1
-        COMPOSER_HOME: /root/.composer/
-        COMPOSER_PROXY: ${COMPOSER_PROXY}
-        HUGHCUBE_ALIFC_ALLOW_FIRE_JOB: On
+      COMPOSER_ALLOW_SUPERUSER: 1
+      COMPOSER_HOME: /root/.composer/
+      COMPOSER_PROXY: ${COMPOSER_PROXY:-}
+      HUGHCUBE_ALIFC_ALLOW_FIRE_JOB: On
     command: sh -c 'until /usr/local/bin/php /data/app/artisan serve --host=0.0.0.0 --port=80; do echo "Command failed, retrying in 5 seconds..."; sleep 5; done'
-    #command: sh -c 'until /usr/local/bin/php -d xdebug.mode=off /data/app/artisan octane:start --host=0.0.0.0 --port=80 --max-requests=500 --task-workers=1 --workers=3; do echo "Command failed, retrying in 5 seconds..."; sleep 5; done'
     volumes:
-        - .:/data/app:rw
-        - home-volume:/root/:rw
-
-        # OPcache 配置文件
-        - ./.docker/developer-opcache.ini:/usr/local/etc/php/conf.d/docker-php-ext-opcache.ini:ro
-        - ./.docker/developer-opcache-blacklist.txt:/usr/local/etc/php/opcache.blacklist:ro
+      - .:/data/app:rw
+      - home-volume:/root/:rw
+      # OPcache 配置文件
+      - ./.docker/developer-opcache.ini:/usr/local/etc/php/conf.d/docker-php-ext-opcache.ini:ro
+      - ./.docker/developer-opcache-blacklist.txt:/usr/local/etc/php/opcache.blacklist:ro
     restart: unless-stopped
     networks:
-        - app
+      - app
     depends_on:
-        - redis
-        - pgsql
+      redis:
+        condition: service_healthy
+      pgsql:
+        condition: service_healthy
 
   gateway:
     image: caddy:2-alpine
     ports:
-        - "${APP_EXPOSE_PORT:-5012}:80"
+      - "${APP_EXPOSE_PORT:-5012}:80"
     volumes:
-        - ./.docker/gateway.Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./.docker/gateway.Caddyfile:/etc/caddy/Caddyfile:ro
     environment:
-        GODEBUG: netdns=go+v4
+      GODEBUG: netdns=go+v4
     dns_opt:
-        - ndots:1
-        - timeout:2
-        - attempts:3
+      - ndots:1
+      - timeout:2
+      - attempts:3
     restart: unless-stopped
     networks:
-        - app
+      - app
     depends_on:
-        - app
+      app:
+        condition: service_started
 
   redis:
     image: redis:7-alpine
     command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
     restart: unless-stopped
     volumes:
-        - ./storage/redis:/data
+      - ./storage/redis:/data
     networks:
-        - app
+      - app
 
   pgsql:
     image: postgres:18-alpine
     restart: unless-stopped
     environment:
-        POSTGRES_DB: demo_test
-        POSTGRES_USER: demo_test
-        POSTGRES_PASSWORD: demo_test
-        POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+      POSTGRES_DB: demo_test
+      POSTGRES_USER: demo_test
+      POSTGRES_PASSWORD: demo_test
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
     command: postgres -c wal_level=logical -c max_replication_slots=4 -c max_wal_senders=4 -c max_locks_per_transaction=512
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U demo_test -d demo_test"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
     volumes:
-        - ./storage/pgsql:/var/lib/postgresql
-        - ./.docker/pgsql-test-init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+      - ./storage/pgsql:/var/lib/postgresql
+      - ./.docker/pgsql-test-init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
     networks:
-        - app
+      - app
 
 volumes:
-    home-volume: {}
+  home-volume: {}
+

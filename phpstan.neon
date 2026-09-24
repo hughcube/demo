@@ -5,13 +5,16 @@ parameters:
         - app
     inferPrivatePropertyTypeFromConstructor: true
     excludePaths:
-        - app/Models/Base/
+        - app/Models/Base (?)
+
+    reportUnmatchedIgnoredErrors: false
 
     ignoreErrors:
         - '#.*HughCube\\Laravel\\Knight\\Ide\\Http\\KIdeRequest.*#'
-        - '#Call to an undefined method Illuminate\\Http\\Request::getClientPlatform\(.*#'
-        - '#Call to an undefined method Illuminate\\Http\\Request::getClientOs\(.*#'
+        - '#Call to an undefined method Illuminate\\Http\\Request::getClient.*#'
         - '#Call to an undefined method Illuminate\\Http\\Request::isLtClientVersion\(.*#'
+        - '#Access to constant REQUEST on an unknown class Laravel\\Telescope\\EntryType.*#'
+        - '#PHPDoc type .* of property App\\Exceptions\\Handler::\$dontReport is not covariant.*#'
         - '#Method App\\Exceptions\\Handler::convertExceptionToResults\(\) return type has no value type specified in iterable type array*#'
         - '#Method App\\Jobs\\AAAJob::dispatchP\(\) should return Illuminate\\Foundation\\Bus\\PendingDispatch but returns Illuminate\\Foundation\\Bus\\PendingDispatch\|static\(App\\Jobs\\AAAJob\)*#'
 

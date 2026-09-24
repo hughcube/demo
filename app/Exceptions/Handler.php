@@ -50,4 +50,26 @@ class Handler extends ExceptionHandler
     {
         return null;
     }
+
+    protected function convertExceptionToDebugArray(Throwable $e): array
+    {
+        $array = [
+            'code'        => $e->getCode(),
+            'exception'   => get_class($e),
+            'message'     => $e->getMessage(),
+            'file'        => $e->getFile(),
+            'line'        => $e->getLine(),
+            'stack-trace' => explode("\n", $e->getTraceAsString()),
+        ];
+
+        if ($e instanceof ValidationException) {
+            $array['errors'] = $e->errors();
+        }
+
+        if (($prev = $e->getPrevious()) !== null) {
+            $array['previous'] = $this->convertExceptionToDebugArray($prev);
+        }
+
+        return $array;
+    }
 }

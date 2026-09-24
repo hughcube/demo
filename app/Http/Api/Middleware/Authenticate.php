@@ -36,6 +36,7 @@ class Authenticate extends \HughCube\Laravel\Knight\Http\Middleware\Authenticate
     protected function getOptional(): array
     {
         return [
+            '/api/login/*',
             '/api/logon/*',
         ];
     }

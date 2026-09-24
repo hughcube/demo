@@ -9,7 +9,7 @@
 
 declare(strict_types=1);
 
-namespace App\Http\App\Controllers\Login;
+namespace App\Http\Api\Controllers\Login;
 
 use App\Enum\UserTypeEnum;
 use App\Models\User;
@@ -64,31 +64,16 @@ class WeChatH5Controller extends AAAController
             try {
                 $app = WeChat::officialAccount($appid);
 
-                // 通过授权码获取access_token
-                $response = $app->getUtils()->codeToSession($code);
+                $oauthUser = $app->getOAuth()->userFromCode($code);
+                $userData = $oauthUser->getRaw();
 
-                if (!isset($response['access_token']) || !isset($response['openid'])) {
-                    throw new UserException('获取access_token失败');
-                }
-
-                // 获取用户信息
-                $userInfo = $app->getClient()->get('/cgi-bin/user/info', [
-                    'query' => [
-                        'access_token' => $response['access_token'],
-                        'openid' => $response['openid'],
-                        'lang' => 'zh_CN',
-                    ],
-                ]);
-
-                $userData = $userInfo->toArray();
-
-                if (isset($userData['errcode']) && $userData['errcode'] !== 0) {
-                    throw new UserException('获取用户信息失败: ' . ($userData['errmsg'] ?? '未知错误'));
+                if (!isset($userData['openid'])) {
+                    $userData['openid'] = $oauthUser->getId();
                 }
 
                 return $userData;
             } catch (Throwable $exception) {
-                if (str_contains($exception->getMessage(), 'invalid code')) {
+                if (str_contains($exception->getMessage(), 'invalid code') || str_contains($exception->getMessage(), '40029')) {
                     throw new UserException('授权码已过期，请重新授权！');
                 }
 

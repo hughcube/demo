@@ -6,7 +6,7 @@
  * Time: 8:42 下午
  */
 
-namespace App\Http\App\Controllers\Login;
+namespace App\Http\Api\Controllers\Login;
 
 use App\Models\User;
 use HughCube\Laravel\Knight\Exceptions\Exception;
