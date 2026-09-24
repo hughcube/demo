@@ -11,8 +11,8 @@ parameters:
 
     ignoreErrors:
         - '#.*HughCube\\Laravel\\Knight\\Ide\\Http\\KIdeRequest.*#'
-        - '#Call to an undefined method Illuminate\\Http\\Request::getClient.*#'
-        - '#Call to an undefined method Illuminate\\Http\\Request::isLtClientVersion\(.*#'
+        - '#Call to an undefined method Illuminate\\Http\\Request::\w+\(.*#'
+        - '#Call to an undefined static method Illuminate\\Http\\Request::\w+\(.*#'
         - '#Access to constant REQUEST on an unknown class Laravel\\Telescope\\EntryType.*#'
         - '#PHPDoc type .* of property App\\Exceptions\\Handler::\$dontReport is not covariant.*#'
         - '#Method App\\Exceptions\\Handler::convertExceptionToResults\(\) return type has no value type specified in iterable type array*#'

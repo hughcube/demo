@@ -1,11 +1,13 @@
 <?php
 
-use App\Http\Api\Controllers\Login\AliPayMpController;
-use App\Http\Api\Controllers\Login\GuestController;
-use App\Http\Api\Controllers\Login\LocalController;
-use App\Http\Api\Controllers\Login\PostmenController;
-use App\Http\Api\Controllers\Login\WeChatH5Controller;
-use App\Http\Api\Controllers\Login\WeChatMpController;
+declare(strict_types=1);
+
+use App\Http\Controllers\App\Login\AliPayMpController;
+use App\Http\Controllers\App\Login\GuestController;
+use App\Http\Controllers\App\Login\LocalController;
+use App\Http\Controllers\App\Login\PostmenController;
+use App\Http\Controllers\App\Login\WeChatH5Controller;
+use App\Http\Controllers\App\Login\WeChatMpController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('login')->group(function () {

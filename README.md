@@ -1,6 +1,8 @@
-# Demo（Laravel 12）
+# Demo（Laravel 13）
 
-一个用于演示的 Laravel 项目，集成了阿里云 OSS、函数计算、Octane 等常用组件，方便在本地或容器内快速体验。
+一个用于演示的 Laravel 高性能骨架项目，集成了阿里云 OSS、函数计算、Octane (Swoole)、Caddy 网关等常用组件，方便在本地或容器内快速体验。
+
+> 架构细节与性能调优请参阅：[高性能与高并发架构深度解析指南](./PERFORMANCE.md)
 
 ## 环境要求
 - PHP 8.4+，Composer，。

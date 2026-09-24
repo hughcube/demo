@@ -19,6 +19,7 @@ yarn-error.log
 _ide_helper.php
 _ide_helper.*.php
 preload.php
+version.json
 .phpunit.cache/
 
 /caddy
