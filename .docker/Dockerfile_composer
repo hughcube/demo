@@ -13,7 +13,7 @@ RUN set -eux; \
     rm -rf /tmp/opcache; mkdir -p /tmp/opcache; chmod -R 0777 /tmp/opcache; \
     rm -rf /usr/local/etc/php/conf.d/*opcache.ini; touch /usr/local/etc/php/conf.d/docker-php-ext-opcache.ini; \
     { \
-        echo "; PHP 8.5+ 默认内置 opcache,无需 zend_extension=opcache"; \
+        php -r "echo version_compare(PHP_VERSION, '8.5.0', '<') ? 'zend_extension=opcache' . PHP_EOL : '; PHP 8.5+ 默认内置 opcache,无需 zend_extension=opcache' . PHP_EOL;"; \
         echo "opcache.enable=0"; \
         echo "opcache.enable_cli=0"; \
     } > /usr/local/etc/php/conf.d/docker-php-ext-opcache.ini; \

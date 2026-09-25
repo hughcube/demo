@@ -1,0 +1,157 @@
+name: demo-perf
+
+networks:
+  app:
+    driver: bridge
+    driver_opts:
+      com.docker.network.bridge.enable_icc: "true"
+
+services:
+  # ==============================================================================
+  # Swoole 生产极致性能常驻内存容器 (由项目根目录 Dockerfile 构建)
+  # ==============================================================================
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: demo:octane-prod
+    user: root:root
+    shm_size: 512m
+    tmpfs:
+      - /data/app/storage/run:rw,noexec,nosuid,size=64m
+      - /tmp:rw,noexec,nosuid,size=256m
+    ulimits:
+      nofile:
+        soft: 65535
+        hard: 65535
+      nproc: 65535
+    sysctls:
+      net.core.somaxconn: 65535
+      net.ipv4.tcp_tw_reuse: 1
+      net.ipv4.ip_local_port_range: "1024 65535"
+    environment:
+      LARAVEL_OCTANE: 1
+      APP_ENV: production
+      APP_DEBUG: "false"
+      APP_KEY: "base64:Ds0v+1R14A7ZBNWD29oSLjUev07IgdV0DLt1fHr4AeA="
+      JWT_SECRET: "rwCPEWc2MyErfiu0rZSAGpDb3Iyts4Ua"
+      DB_CONNECTION: pgsql
+      DB_PGSQL_HOST: pgsql
+      DB_PGSQL_PORT: 5432
+      DB_PGSQL_DATABASE: demo_test
+      DB_PGSQL_USERNAME: demo_test
+      DB_PGSQL_PASSWORD: demo_test
+      DB_PGSQL_PERSISTENT: "true"
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PERSISTENT: "true"
+      OCTANE_SERVER: swoole
+      OCTANE_MAX_WORKERS: 4
+      OCTANE_REACTOR_NUM: 2
+      OCTANE_MAX_REQUESTS: 20000
+      OCTANE_GARBAGE: 128
+      OCTANE_BACKLOG: 65535
+      HUGHCUBE_ALIFC_ALLOW_FIRE_JOB: On
+    restart: unless-stopped
+    networks:
+      - app
+    depends_on:
+      redis:
+        condition: service_healthy
+      pgsql:
+        condition: service_healthy
+
+  # ==============================================================================
+  # 高性能统一网关 (Caddy 2，专供性能压测)
+  # ==============================================================================
+  gateway:
+    image: caddy:2-alpine
+    ports:
+      - "${PERF_EXPOSE_PORT:-5012}:80"
+    command: ["caddy", "reverse-proxy", "--from", ":80", "--to", "app:80"]
+    environment:
+      GODEBUG: netdns=go+v4
+    ulimits:
+      nofile:
+        soft: 65535
+        hard: 65535
+    sysctls:
+      net.core.somaxconn: 65535
+      net.ipv4.tcp_tw_reuse: 1
+      net.ipv4.ip_local_port_range: "1024 65535"
+    dns_opt:
+      - ndots:1
+      - timeout:2
+      - attempts:3
+    restart: unless-stopped
+    networks:
+      - app
+    depends_on:
+      app:
+        condition: service_started
+
+  # ==============================================================================
+  # 高性能缓存 (Redis 7，纯内存无持久化模式)
+  # ==============================================================================
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly no --save "" --maxmemory 256mb --maxmemory-policy allkeys-lru --tcp-backlog 65535 --timeout 0 --tcp-keepalive 60
+    ulimits:
+      nofile:
+        soft: 65535
+        hard: 65535
+    sysctls:
+      net.core.somaxconn: 65535
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - app
+
+  # ==============================================================================
+  # 高性能数据库 (PostgreSQL 18，内存化与零 I/O 抖动压测配置)
+  # ==============================================================================
+  pgsql:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    shm_size: 512m
+    ulimits:
+      nofile:
+        soft: 65535
+        hard: 65535
+    sysctls:
+      net.core.somaxconn: 65535
+    environment:
+      POSTGRES_DB: demo_test
+      POSTGRES_USER: demo_test
+      POSTGRES_PASSWORD: demo_test
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+    command: >
+      postgres
+      -c wal_level=minimal
+      -c max_wal_senders=0
+      -c synchronous_commit=off
+      -c fsync=off
+      -c full_page_writes=off
+      -c shared_buffers=256MB
+      -c work_mem=32MB
+      -c maintenance_work_mem=64MB
+      -c checkpoint_completion_target=0.9
+      -c wal_buffers=16MB
+      -c max_connections=300
+      -c random_page_cost=1.0
+      -c effective_cache_size=512MB
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U demo_test -d demo_test"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    volumes:
+      - ./.docker/pgsql-init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    tmpfs:
+      - /var/lib/postgresql/data:rw,noexec,nosuid,size=1024m
+    networks:
+      - app

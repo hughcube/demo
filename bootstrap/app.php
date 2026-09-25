@@ -37,7 +37,7 @@ return Application::configure(basePath: dirname(__DIR__))
             \HughCube\Laravel\Knight\Http\Middleware\HandleAllPathCors::class,
         ]);
 
-        /** web middleware group */
+        /** web middleware group: 纯无状态 API 骨架不启用传统 Web 中间件栈，直接置空覆盖官方默认 Cookie/Session/CSRF 中间件 */
         $middleware->group('web', [
         ]);
 

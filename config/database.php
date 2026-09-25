@@ -37,9 +37,14 @@ return [
             'database' => env('DB_DATABASE', database_path('database.sqlite')),
             'prefix' => '',
             'foreign_key_constraints' => env('DB_FOREIGN_KEYS', true),
-            'busy_timeout' => null,
-            'journal_mode' => null,
-            'synchronous' => null,
+            'busy_timeout' => env('DB_SQLITE_BUSY_TIMEOUT', 3000),
+            'journal_mode' => 'WAL',
+            'synchronous' => 'NORMAL',
+            'options' => [
+                PDO::ATTR_EMULATE_PREPARES => true,
+                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+            ],
         ],
 
         'mysql' => [
@@ -63,7 +68,7 @@ return [
             'engine' => null,
             'options' => [
                 // 复用底层的 TCP 连接池，避免每个请求重新建立连接的高额网络握手与身份认证延迟
-                PDO::ATTR_PERSISTENT => boolval(env('DB_MYSQL_PERSISTENT', false)),
+                PDO::ATTR_PERSISTENT => boolval(env('DB_MYSQL_PERSISTENT', true)),
 
                 // 本地模拟预处理：默认 false 会导致每次查询先发 PREPARE 再发 EXECUTE(2 次网络 RTT 往返)；
                 // 开启后由客户端本地安全绑定参数单次发包执行，网络往返直接减半(1 次 RTT)，在高并发与跨机房场景收益显著
@@ -71,7 +76,13 @@ return [
 
                 // 快速超时失败(默认 3 秒)，防止数据库网络抖动或负载过高时将所有常驻 Worker 进程堵死在连接阶段
                 PDO::ATTR_TIMEOUT => intval(env('DB_MYSQL_CONNECT_TIMEOUT', 3)),
-            ],
+
+                // 纯关联数组返回，避免默认 FETCH_BOTH 内存膨胀与重复拷贝
+                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+
+                // 严格异常抛出
+                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+            ] + (defined('\Pdo\Mysql::ATTR_USE_BUFFERED_QUERY') ? [\Pdo\Mysql::ATTR_USE_BUFFERED_QUERY => true] : (defined('PDO::MYSQL_ATTR_USE_BUFFERED_QUERY') ? [constant('PDO::MYSQL_ATTR_USE_BUFFERED_QUERY') => true] : [])),
         ],
 
         'pgsql' => [
@@ -89,14 +100,29 @@ return [
             'sslmode' => 'prefer',
             'options' => [
                 // 跨请求复用底层数据库连接
-                PDO::ATTR_PERSISTENT => boolval(env('DB_PGSQL_PERSISTENT', false)),
+                PDO::ATTR_PERSISTENT => boolval(env('DB_PGSQL_PERSISTENT', true)),
 
                 // 本地模拟预处理：减少向数据库服务端发送预处理的网络往返(RTT 减半)
                 PDO::ATTR_EMULATE_PREPARES => true,
 
                 // 快速超时失败(默认 3 秒)，防止数据库连接卡死阻塞常驻进程
                 PDO::ATTR_TIMEOUT => intval(env('DB_PGSQL_CONNECT_TIMEOUT', 3)),
-            ],
+
+                // 纯关联数组返回，避免默认 FETCH_BOTH 内存翻倍
+                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+
+                // 严格异常模式
+                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+            ] + (
+                // 彻底禁用 PostgreSQL 服务端预处理：
+                // 配合 ATTR_EMULATE_PREPARES，坚决不向数据库服务端发送 PREPARE 语句，
+                // 彻底规避在高并发下使用外部数据库连接池(如 PgBouncer 处于事务池化模式)时
+                // 发生的 prepared statement 命名冲突与状态泄漏，确保所有查询均为单次网络往返极速执行；
+                // 兼容 PHP 8.5+ 的 Pdo\Pgsql::ATTR_DISABLE_PREPARES 与旧版本常量，使用联合操作符避免解构重排整数键
+                defined('\Pdo\Pgsql::ATTR_DISABLE_PREPARES')
+                    ? [\Pdo\Pgsql::ATTR_DISABLE_PREPARES => true]
+                    : (defined('PDO::PGSQL_ATTR_DISABLE_PREPARES') ? [constant('PDO::PGSQL_ATTR_DISABLE_PREPARES') => true] : [])
+            ),
         ],
 
     ],
@@ -136,7 +162,7 @@ return [
             'cluster' => env('REDIS_CLUSTER', 'redis'),
             'prefix' => env('REDIS_PREFIX', Str::slug(env('APP_NAME', 'laravel'), '_') . '_database_'),
             // 在 Octane/常驻内存环境下复用底层的 TCP 长连接，减少网络握手开销
-            'persistent' => env('REDIS_PERSISTENT', false),
+            'persistent' => env('REDIS_PERSISTENT', true),
         ],
 
         'default' => [

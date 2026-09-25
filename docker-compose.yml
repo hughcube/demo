@@ -78,7 +78,7 @@ services:
       retries: 5
     volumes:
       - ./storage/pgsql:/var/lib/postgresql
-      - ./.docker/pgsql-test-init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+      - ./.docker/pgsql-init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
     networks:
       - app
 

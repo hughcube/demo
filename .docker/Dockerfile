@@ -78,7 +78,7 @@ RUN set -eux; \
     rm -rf /tmp/opcache; mkdir -p /tmp/opcache; chmod -R 0777 /tmp/opcache; \
     rm -rf /usr/local/etc/php/conf.d/*opcache.ini; touch /usr/local/etc/php/conf.d/docker-php-ext-opcache.ini; \
     { \
-        echo "; PHP 8.5+ 默认内置 opcache,无需 zend_extension=opcache"; \
+        php -r "echo version_compare(PHP_VERSION, '8.5.0', '<') ? 'zend_extension=opcache' . PHP_EOL : '; PHP 8.5+ 默认内置 opcache,无需 zend_extension=opcache' . PHP_EOL;"; \
         echo "opcache.enable=1 ; 启用 opcache"; \
         echo "opcache.enable_cli=1 ; CLI 模式也启用 (适用于 Octane)"; \
         echo "opcache.jit=disable ; 显式禁用 JIT (避免误开启/额外内存开销)"; \
@@ -132,10 +132,29 @@ RUN set -eux; \
 
 WORKDIR ${APP_BASE_PATH}
 
+# ==============================================================================
+# 生产运行时启动入口与 PHP 极致性能参数说明:
+# - expose_php="Off"              : 隐藏 PHP 版本指纹，减少响应头字节开销与安全信息泄漏
+# - variables_order="EGPCS"       : 确保解析环境变量(E)与服务器变量(S)，常驻进程与容器化场景必需
+# - auto_globals_jit="On"         : 启用超全局变量 JIT 按需初始化，跳过未访问全局变量的注册损耗
+# - pcre.jit="1"                  : 开启正则 JIT 机器码加速，大幅提升路由正则分发树匹配性能
+# - output_buffering="4096"       : 开启 4KB 响应块缓冲，合并小数据包，减少底层网络 write 系统调用
+# - default_socket_timeout="3"    : 严格限制网络调用超时为 3s，防止微服务/外部网络异常挂死 Worker 进程
+# - realpath_cache_size="32M"     : 扩容真实路径缓存至 32MB，完全覆盖全量 Autoload 与 Preload 文件 stat
+# - realpath_cache_ttl="86400"    : 路径缓存有效期设为 1 天(86400s)，生产代码不变更，彻底消除文件存在性检查开销
+# - memory_limit="512M"           : 限制单 Worker 内存上限，配合 Octane 的垃圾回收防爆内存
+# - zend.assertions="-1"          : 生产环境彻底关闭断言代码生成，零 CPU 执行损耗
+# - error_reporting="E_ALL"       : 全量捕获异常与错误，配合常驻进程平滑记录
+# - error_log="${LOG_PATH}/..."   : 将错误统一重定向到标准持久化日志文件
+# ==============================================================================
 CMD LARAVEL_OCTANE=1 /usr/local/bin/php \
         -d expose_php="Off" \
         -d variables_order="EGPCS" \
-        -d realpath_cache_size="16M" \
+        -d auto_globals_jit="On" \
+        -d pcre.jit="1" \
+        -d output_buffering="4096" \
+        -d default_socket_timeout="3" \
+        -d realpath_cache_size="32M" \
         -d realpath_cache_ttl="86400" \
         -d memory_limit="512M" \
         -d zend.assertions="-1" \

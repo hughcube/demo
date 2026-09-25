@@ -1,10 +1,6 @@
 # ==============================================================================
-# demo 本地开发反向代理网关
-# ==============================================================================
-# 作用：
-#   - 统一入口（${APP_EXPOSE_PORT:-5012}），后端容器 app:80 不直接暴露
-#   - 透传 Host 头，便于业务侧拿到真实域名
-#   - 后续如需做 path 分流（例如把部分路径转给 dev 公网），在此文件扩展即可
+# demo 高性能反向代理网关 (Caddy 2)
+# 80 端口 (宿主 5012): Octane (Swoole) 常驻内存模式 - 极致高并发与微秒级响应
 # ==============================================================================
 
 {
@@ -12,6 +8,9 @@
 	auto_https off
 }
 
+# ------------------------------------------------------------------------------
+# Octane (Swoole) HTTP Keep-Alive 极速代理
+# ------------------------------------------------------------------------------
 :80 {
 	log {
 		output stdout
@@ -20,5 +19,12 @@
 
 	reverse_proxy app:80 {
 		header_up Host {http.request.host}
+		header_up X-Real-IP {http.request.remote.host}
+		header_up X-Forwarded-For {http.request.remote.host}
+		header_up X-Forwarded-Proto {http.request.scheme}
+		transport http {
+			keepalive 60s
+			keepalive_idle_conns 100
+		}
 	}
 }

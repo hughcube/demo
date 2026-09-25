@@ -21,7 +21,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        $this->app->resolving('tymon.jwt.payload.factory', function (JWTAuthFactory $factory, $app) {
+        $this->app->resolving('tymon.jwt.payload.factory', function (JWTAuthFactory $factory) {
             $factory->setDefaultClaims(['iat', 'exp', 'nbf', 'jti']);
         });
 
@@ -48,11 +48,21 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        Request::mixin(new RequestMixin());
+        if (!Request::hasMacro('getClientHeaderPrefix')) {
+            Request::mixin(new RequestMixin());
+        }
 
-        if (str_starts_with($this->getContainerConfig()->get('app.url'), 'https://')) {
+        if (str_starts_with(strval(config('app.url')), 'https://')) {
             URL::forceScheme('https');
         }
+
+        // Eloquent 模型运行期性能调优：
+        // 生产环境下关闭严格模式(懒加载拦截/动态未填充属性检查等)，消除每次属性读写的拦截与反射开销；
+        // 本地/测试环境下开启以帮助提前捕获 N+1 查询与模型潜在缺陷。
+        \Illuminate\Database\Eloquent\Model::shouldBeStrict(!$this->app->isProduction());
+
+        // 生产环境安全兜底：严禁误触发破坏性数据重置命令(如 db:wipe, migrate:fresh)
+        \Illuminate\Support\Facades\DB::prohibitDestructiveCommands($this->app->isProduction());
 
         /** 将 Telescope 请求条目的 UUID 写入响应头，方便排查问题 */
         if (class_exists(\Laravel\Telescope\Telescope::class)) {

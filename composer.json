@@ -9,7 +9,7 @@
     ],
     "license": "MIT",
     "require": {
-        "php": "^8.5",
+        "php": "^8.4|^8.5",
         "ext-pdo": "*",
         "ext-zend-opcache": "*",
         "laravel/framework": "^13.0",
@@ -51,13 +51,13 @@
     "autoload": {
         "psr-4": {
             "App\\": "app/",
-            "Database\\Factories\\": "database/factories/",
-            "Database\\Seeders\\": "database/seeders/",
             "Database\\Migrations\\": "database/migrations/"
         }
     },
     "autoload-dev": {
         "psr-4": {
+            "Database\\Factories\\": "database/factories/",
+            "Database\\Seeders\\": "database/seeders/",
             "Tests\\": "tests/"
         }
     },

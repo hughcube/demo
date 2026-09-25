@@ -76,7 +76,7 @@ RUN php preload.php
 # 在本地 SQLite 跑通数据迁移，提前拦截模型、表结构定义与索引语法断层
 RUN rm -rf "${APP_BASE_PATH}/database/database.sqlite"
 RUN touch "${APP_BASE_PATH}/database/database.sqlite"
-RUN php artisan migrate --force
+RUN php artisan migrate --force --database=sqlite
 
 # 提前生成 Swoole 状态文件与运行描述信息，省去容器启动时的探测耗时，实现秒级拉起
 RUN php artisan octane:prepare \
@@ -108,4 +108,4 @@ COPY --from=builder  ${APP_BASE_PATH} ${APP_BASE_PATH}
 # OPcache 全量字节码离线编译(AOT Compile)：
 # 在容器镜像封存前，将全量业务与 vendor 代码编译为 OPcache 操作码(Bytecode)存入持久缓存；
 # 容器启动后首批请求直接命中内存中的操作码，彻底消除运行时词法与语法解析延迟，实现真正的“全热态零延迟冷启动”
-RUN if [ "${SKIP_OPCACHE_COMPILE}" = "0" ]; then php /data/app/artisan opcache:compile-files; fi
+RUN if [ "${SKIP_OPCACHE_COMPILE}" = "0" ]; then php -d opcache.enable_cli=1 /data/app/artisan opcache:compile-files; fi

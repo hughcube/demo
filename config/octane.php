@@ -63,7 +63,6 @@ return [
         ],
 
         \Laravel\Octane\Events\RequestReceived::class => Collection::make([
-            #\HughCube\Laravel\Octane\Listeners\PrepareServerVariables::class,
             ...\Laravel\Octane\Octane::prepareApplicationForNextOperation(),
             ...\Laravel\Octane\Octane::prepareApplicationForNextRequest(),
         ])->diff(Collection::make([
@@ -123,6 +122,7 @@ return [
             !class_exists(\Laravel\Scout\EngineManager::class) ? \Laravel\Octane\Listeners\PrepareScoutForNextOperation::class : null,
             !class_exists(\Livewire\LivewireManager::class) ? \Laravel\Octane\Listeners\PrepareLivewireForNextOperation::class : null,
             !class_exists(\Laravel\Socialite\Contracts\Factory::class) ? \Laravel\Octane\Listeners\PrepareSocialiteForNextOperation::class : null,
+            \Laravel\Octane\Listeners\FlushVite::class,
         ])->filter()->values())->values()->toArray(),
 
         \Laravel\Octane\Events\RequestHandled::class => [
@@ -133,19 +133,79 @@ return [
             \Laravel\Octane\Listeners\FlushUploadedFiles::class,
         ],
 
-        \Laravel\Octane\Events\TaskReceived::class => [
+        \Laravel\Octane\Events\TaskReceived::class => Collection::make([
             ...\Laravel\Octane\Octane::prepareApplicationForNextOperation(),
-            //
-        ],
+        ])->diff(Collection::make([
+            // 异步任务处理允许局部跨调用安全复用微缓存，省去每次遍历清空开销。
+            \Laravel\Octane\Listeners\FlushArrayCache::class,
+
+            // 任务处理几乎不动态篡改路由基地址；沙箱克隆与销毁会增加 GC 负担，以单例常驻复用性能最优。
+            \Laravel\Octane\Listeners\CreateUrlGeneratorSandbox::class,
+
+            // 常驻内存严禁动态篡改 config()，直接以只读单例复用构建期缓存好的单一配置数组，零克隆损耗。
+            \Laravel\Octane\Listeners\CreateConfigurationSandbox::class,
+            // 邮件管理器以单例常驻即可，无需在每次 Task 执行前重复进行反射与容器实例反弹。
+            \Laravel\Octane\Listeners\GiveNewApplicationInstanceToMailManager::class,
+
+            // 纯 API 骨架与后台计算任务全链路停用 Session，该管理器毫无用处，重新注入纯属冗余。
+            \Laravel\Octane\Listeners\GiveNewApplicationInstanceToSessionManager::class,
+
+            // 异步任务执行无同步广播需求，无需在事件循环中重新绑定广播容器。
+            \Laravel\Octane\Listeners\GiveNewApplicationInstanceToBroadcastManager::class,
+            // 系统未启用数据库 Session 存储机制，完全无用。
+            \Laravel\Octane\Listeners\GiveNewApplicationInstanceToDatabaseSessionHandler::class,
+
+            // 通知通道统一通过单例管理，无需在每个 Task 执行前逐次重新绑定容器。
+            \Laravel\Octane\Listeners\GiveNewApplicationInstanceToNotificationChannelManager::class,
+            // 骨架未引入前端路由(Inertia)、搜索(Scout)、全栈组件(Livewire)或三方 OAuth(Socialite)，
+            // 直接从事件链剔除，避免每次产生空判断与冗余反射。
+            !class_exists(\Inertia\ResponseFactory::class) ? \Laravel\Octane\Listeners\PrepareInertiaForNextOperation::class : null,
+            !class_exists(\Laravel\Scout\EngineManager::class) ? \Laravel\Octane\Listeners\PrepareScoutForNextOperation::class : null,
+            !class_exists(\Livewire\LivewireManager::class) ? \Laravel\Octane\Listeners\PrepareLivewireForNextOperation::class : null,
+            !class_exists(\Laravel\Socialite\Contracts\Factory::class) ? \Laravel\Octane\Listeners\PrepareSocialiteForNextOperation::class : null,
+
+            // 纯 API 与后台计算任务无前端静态资源热更新机制，无需排空 Vite 状态。
+            \Laravel\Octane\Listeners\FlushVite::class,
+        ])->filter()->values())->values()->toArray(),
 
         \Laravel\Octane\Events\TaskTerminated::class => [
             //
         ],
 
-        \Laravel\Octane\Events\TickReceived::class => [
+        \Laravel\Octane\Events\TickReceived::class => Collection::make([
             ...\Laravel\Octane\Octane::prepareApplicationForNextOperation(),
-            //
-        ],
+        ])->diff(Collection::make([
+            // 定时 Tick 任务允许局部跨调用安全复用微缓存，省去每次遍历清空开销。
+            \Laravel\Octane\Listeners\FlushArrayCache::class,
+
+            // 定时任务处理几乎不动态篡改路由基地址；沙箱克隆与销毁会增加 GC 负担，以单例常驻复用性能最优。
+            \Laravel\Octane\Listeners\CreateUrlGeneratorSandbox::class,
+
+            // 常驻内存严禁动态篡改 config()，直接以只读单例复用构建期缓存好的单一配置数组，零克隆损耗。
+            \Laravel\Octane\Listeners\CreateConfigurationSandbox::class,
+            // 邮件管理器以单例常驻即可，无需在每次 Tick 执行前重复进行反射与容器实例反弹。
+            \Laravel\Octane\Listeners\GiveNewApplicationInstanceToMailManager::class,
+
+            // 纯 API 骨架与定时任务全链路停用 Session，该管理器毫无用处，重新注入纯属冗余。
+            \Laravel\Octane\Listeners\GiveNewApplicationInstanceToSessionManager::class,
+
+            // 定时任务执行无同步广播需求，无需在事件循环中重新绑定广播容器。
+            \Laravel\Octane\Listeners\GiveNewApplicationInstanceToBroadcastManager::class,
+            // 系统未启用数据库 Session 存储机制，完全无用。
+            \Laravel\Octane\Listeners\GiveNewApplicationInstanceToDatabaseSessionHandler::class,
+
+            // 通知通道统一通过单例管理，无需在每个 Tick 执行前逐次重新绑定容器。
+            \Laravel\Octane\Listeners\GiveNewApplicationInstanceToNotificationChannelManager::class,
+            // 骨架未引入前端路由(Inertia)、搜索(Scout)、全栈组件(Livewire)或三方 OAuth(Socialite)，
+            // 直接从事件链剔除，避免每次产生空判断与冗余反射。
+            !class_exists(\Inertia\ResponseFactory::class) ? \Laravel\Octane\Listeners\PrepareInertiaForNextOperation::class : null,
+            !class_exists(\Laravel\Scout\EngineManager::class) ? \Laravel\Octane\Listeners\PrepareScoutForNextOperation::class : null,
+            !class_exists(\Livewire\LivewireManager::class) ? \Laravel\Octane\Listeners\PrepareLivewireForNextOperation::class : null,
+            !class_exists(\Laravel\Socialite\Contracts\Factory::class) ? \Laravel\Octane\Listeners\PrepareSocialiteForNextOperation::class : null,
+
+            // 定时任务无前端静态资源热更新机制，无需排空 Vite 状态。
+            \Laravel\Octane\Listeners\FlushVite::class,
+        ])->filter()->values())->values()->toArray(),
 
         \Laravel\Octane\Events\TickTerminated::class => [
             //
@@ -183,9 +243,12 @@ return [
     |
     */
 
-    'warm' => [
-        ...\Laravel\Octane\Octane::defaultServicesToWarm(),
-    ],
+    'warm' => Collection::make(\Laravel\Octane\Octane::defaultServicesToWarm())->diff(Collection::make([
+        'session',
+        'session.store',
+        'cookie',
+        'view',
+    ]))->values()->toArray(),
 
     'flush' => [
         //
@@ -255,7 +318,7 @@ return [
     |
     */
 
-    'garbage' => 50,
+    'garbage' => intval(env('OCTANE_GARBAGE', 128)),
 
     /*
     |--------------------------------------------------------------------------
@@ -295,9 +358,9 @@ return [
             // 避免线程过多引发频繁的 CPU 上下文切换与锁开销。
             'reactor_num' => intval(env('OCTANE_REACTOR_NUM', 1)),
 
-            // 抢占模式(SWOOLE_DISPATCH_PREEMPTIVE)，仅投递给当前空闲的 Worker。
-            // 在同步阻塞式业务(SQL查询/外部调用)场景下，能杜绝因慢请求排队阻塞后序快请求，保障最低平均延迟。
-            'dispatch_mode' => 3,
+            // 调度模式：dispatch_mode=2 为固定模式（按连接轮询/绑定），与 HTTP Keep-Alive 及 Laravel Octane 深度兼容且性能稳定；
+            // 也支持 dispatch_mode=3（无 delay_receive 下的抢占分发）。默认选用兼容性最好的模式。
+            'dispatch_mode' => intval(env('OCTANE_DISPATCH_MODE', 3)),
 
             // Task 进程间通信方式。默认 1 (Unix Socket) 内存管道传输性能最优，无需额外依赖系统内核 IPC 消息队列。
             #'task_ipc_mode' => 1,
@@ -309,8 +372,8 @@ return [
             // 异步平滑重启。Swoole 现代版本底层已默认开启异步安全退出机制。
             #'reload_async' => true,
 
-            // 禁用 TCP Nagle 算法。前端有网关(Caddy/ALB)代理，HTTP 响应通常一次性通过网络缓冲区写出，开启收益微弱。
-            #'open_tcp_nodelay' => true,
+            // 禁用 TCP Nagle 算法，立刻发包，杜绝 40ms ACK 延迟
+            'open_tcp_nodelay' => true,
 
             // Laravel 本身为同步阻塞架构，多进程模式下单 Worker 串行处理单请求隔离性最好、稳定性最高，避免协程上下文混淆。
             #'enable_coroutine' => false,
@@ -327,10 +390,8 @@ return [
             // 需配合系统内核 net.core.somaxconn 同步调优使用。
             'backlog' => intval(env('OCTANE_BACKLOG', 2048)),
 
-            // 延迟接收投递。在抢占模式(dispatch_mode=3)下，客户端仅建立 TCP 连接但不发数据时，
-            // Reactor 不会将连接分发给 Worker；只有当首个 HTTP 请求数据包真正到达时才投递，
-            // 杜绝空闲连接占用宝贵的 PHP Worker 进程。
-            'enable_delay_receive' => true,
+            // 注意：enable_delay_receive 在 Swoole Http Server 下会导致 HTTP 协议握手死锁，必须禁用。
+            #'enable_delay_receive' => false,
 
             // 启用 TCP 底层保活机制，由 Linux 内核主动探测死连接与异常中断，
             // 防止网关与 Swoole 之间的长连接静默断开导致 Worker 向已失效的 socket 写入产生阻塞或异常。
@@ -348,9 +409,9 @@ return [
             #'tcp_fastopen' => true,
 
             // 网络读写与数据包缓冲区大小。针对大 JSON 列表或图片上传，避免分段多次系统调用或爆出缓冲区溢出错误。
-            #'buffer_output_size' => 32 * 1024 * 1024,
-            #'socket_buffer_size' => 64 * 1024 * 1024,
-            #'package_max_length' => 20 * 1024 * 1024,
+            'buffer_output_size' => 32 * 1024 * 1024,
+            'socket_buffer_size' => 64 * 1024 * 1024,
+            'package_max_length' => 20 * 1024 * 1024,
 
             // 生产环境(非Debug)仅记录严重系统异常，杜绝频繁打 trace 日志造成容器磁盘 I/O 竞争与日志刷屏。
             'log_level' => env('APP_DEBUG') ? 0 /** SWOOLE_LOG_DEBUG */ : 5 /** SWOOLE_LOG_ERROR */,

@@ -15,6 +15,6 @@ abstract class Controller extends BaseController
 {
     protected function asResponse(array $data = [], int $code = 200): JsonResponse
     {
-        return new JsonResponse($data)->setStatusCode($code);
+        return new JsonResponse($data, $code, [], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     }
 }
