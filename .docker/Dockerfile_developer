@@ -1,4 +1,4 @@
-ARG BASE_IMAGE=crpi-vrt7o5qsysdzjsbh.cn-shanghai.personal.cr.aliyuncs.com/zycube/demo:base-latest-composer
+ARG BASE_IMAGE=crpi-j5t8nqf1b869w80g.cn-shenzhen.personal.cr.aliyuncs.com/stratum/demo-octane:base-latest-composer
 
 
 #########################################################################################################

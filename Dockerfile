@@ -1,4 +1,4 @@
-ARG BASE_IMAGE=crpi-vrt7o5qsysdzjsbh.cn-shanghai.personal.cr.aliyuncs.com/zycube/demo:base-latest
+ARG BASE_IMAGE=crpi-j5t8nqf1b869w80g.cn-shenzhen.personal.cr.aliyuncs.com/stratum/demo-octane:base-latest
 
 #########################################################################################################
 #### 阶段一：代码构建与预热 (Builder Stage)
@@ -47,9 +47,6 @@ RUN find /app -name '.git' | xargs rm -rf
 #RUN composer config --global --auth http-basic.packagist.x4k.net ${COMPOSER_HZCUBE_USERNAME} ${COMPOSER_HZCUBE_PASSWORD}
 
 # 生产级依赖安装：
-# - --prefer-dist：优先使用预打包压缩包，减少 Git 握手与网络传输
-# - --optimize-autoloader：生成快速类映射，加快加载效率
-# - --profile：输出各阶段耗时与内存使用，辅助构建性能分析
 RUN composer install --prefer-dist --optimize-autoloader $([ "${COMPOSER_NO_DEV}" = "1" ] && echo "--no-dev") --profile
 
 # 权威类映射(Classmap Authoritative)：

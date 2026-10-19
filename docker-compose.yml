@@ -6,7 +6,7 @@ networks:
 
 services:
   app:
-    image: crpi-vrt7o5qsysdzjsbh.cn-shanghai.personal.cr.aliyuncs.com/zycube/demo:base-latest-developer
+    image: crpi-j5t8nqf1b869w80g.cn-shenzhen.personal.cr.aliyuncs.com/stratum/demo-octane:base-latest-developer
     user: root:root
     environment:
       COMPOSER_ALLOW_SUPERUSER: 1
