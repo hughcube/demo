@@ -8,8 +8,24 @@ $basePath = getcwd();
 $preloadFile = getenv('OUTPUT_PATH') ?: $basePath.'/preload.php';
 $skipBootstrap = '1' === getenv('SKIP_BOOTSTRAP');
 
-// 1. 用户自定义配置读取 (preload-config.php)
-$excludes = [];
+// 1. 预加载白名单与黑名单规则定义
+$includeNamespaces = [
+    'App\\',
+    'HughCube\\Laravel\\Knight\\',
+    'HughCube\\Laravel\\Octane\\',
+    'Illuminate\\Routing\\',
+    'Illuminate\\Http\\',
+    'Illuminate\\Pipeline\\',
+    'Illuminate\\Support\\',
+    'Illuminate\\Database\\Eloquent\\',
+    'Illuminate\\Database\\Query\\',
+    'Illuminate\\Events\\',
+    'Illuminate\\Cache\\',
+    'Illuminate\\Validation\\',
+];
+
+$includeClasses = [];
+
 $excludeNamespaces = [
     'Tests\\',
     'PHPUnit\\',
@@ -27,39 +43,8 @@ $excludeNamespaces = [
     'Laravel\\Pail\\',
     'NunoMaduro\\Collision\\',
 ];
-$includeNamespaces = [
-    'App\\',
-    'HughCube\\Laravel\\Knight\\',
-    'HughCube\\Laravel\\Octane\\',
-    'Illuminate\\Routing\\',
-    'Illuminate\\Http\\',
-    'Illuminate\\Pipeline\\',
-    'Illuminate\\Support\\',
-    'Illuminate\\Database\\Eloquent\\',
-    'Illuminate\\Database\\Query\\',
-    'Illuminate\\Events\\',
-    'Illuminate\\Cache\\',
-    'Illuminate\\Validation\\',
-];
-$includeClasses = [];
 
-$configFile = $basePath.'/preload-config.php';
-if (is_file($configFile)) {
-    $userConfig = require $configFile;
-    if (isset($userConfig['exclude_classes']) && is_array($userConfig['exclude_classes'])) {
-        $excludes = array_merge($excludes, $userConfig['exclude_classes']);
-    }
-    if (isset($userConfig['exclude_namespaces']) && is_array($userConfig['exclude_namespaces'])) {
-        $excludeNamespaces = array_merge($excludeNamespaces, $userConfig['exclude_namespaces']);
-    }
-    if (isset($userConfig['include_namespaces']) && is_array($userConfig['include_namespaces'])) {
-        $includeNamespaces = array_merge($includeNamespaces, $userConfig['include_namespaces']);
-    }
-    if (isset($userConfig['include_classes']) && is_array($userConfig['include_classes'])) {
-        $includeClasses = array_merge($includeClasses, $userConfig['include_classes']);
-    }
-    echo 'Loaded custom preload config: ', $configFile, PHP_EOL;
-}
+$excludes = [];
 
 // 记录初始系统类，后续用于 diff 提取新声明类
 $initialClasses = array_merge(
