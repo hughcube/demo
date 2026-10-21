@@ -19,7 +19,12 @@ Route::prefix('login')->group(function () {
     Route::any('alipay-mp', AliPayMpController::class);
 });
 
-Route::prefix('benchmark')->group(function () {
+Route::prefix('benchmark')
+    ->withoutMiddleware([
+        \App\Http\Middleware\Authenticate::class,
+        \App\Http\Middleware\SignatureValidate::class,
+    ])
+    ->group(function () {
     Route::any('ping', \App\Http\Controllers\Benchmark\PingController::class);
     Route::get('item', \App\Http\Controllers\Benchmark\ItemDetailController::class);
     Route::post('item', \App\Http\Controllers\Benchmark\ItemCreateController::class);
