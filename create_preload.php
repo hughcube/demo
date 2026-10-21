@@ -8,43 +8,57 @@ $basePath = getcwd();
 $preloadFile = getenv('OUTPUT_PATH') ?: $basePath.'/preload.php';
 $skipBootstrap = '1' === getenv('SKIP_BOOTSTRAP');
 
-// 1. 预加载白名单与黑名单规则定义
-$includeNamespaces = [
-    'App\\',
-    'HughCube\\Laravel\\Knight\\',
-    'HughCube\\Laravel\\Octane\\',
-    'Illuminate\\Routing\\',
-    'Illuminate\\Http\\',
-    'Illuminate\\Pipeline\\',
-    'Illuminate\\Support\\',
-    'Illuminate\\Database\\Eloquent\\',
-    'Illuminate\\Database\\Query\\',
-    'Illuminate\\Events\\',
-    'Illuminate\\Cache\\',
-    'Illuminate\\Validation\\',
+// 1. 预加载配置定义
+$config = [
+    /**
+     * 需显式预加载的命名空间白名单
+     */
+    'include_namespaces' => [
+        'App\\',
+        'HughCube\\Laravel\\Knight\\',
+        'HughCube\\Laravel\\Octane\\',
+        'Illuminate\\Routing\\',
+        'Illuminate\\Http\\',
+        'Illuminate\\Pipeline\\',
+        'Illuminate\\Support\\',
+        'Illuminate\\Database\\Eloquent\\',
+        'Illuminate\\Database\\Query\\',
+        'Illuminate\\Events\\',
+        'Illuminate\\Cache\\',
+        'Illuminate\\Validation\\',
+    ],
+
+    /**
+     * 需额外显式预加载的具体类名清单
+     */
+    'include_classes' => [],
+
+    /**
+     * 严禁常驻共享内存的命名空间黑名单（开发、测试、调试与迁移）
+     */
+    'exclude_namespaces' => [
+        'Tests\\',
+        'PHPUnit\\',
+        'Mockery\\',
+        'Faker\\',
+        'Spatie\\LaravelIgnition\\',
+        'Spatie\\Ignition\\',
+        'Symfony\\Component\\VarDumper\\',
+        'Laravel\\Telescope\\',
+        'Clockwork\\',
+        'Illuminate\\Testing\\',
+        'Database\\Migrations\\',
+        'Barryvdh\\LaravelIdeHelper\\',
+        'Laravel\\Sail\\',
+        'Laravel\\Pail\\',
+        'NunoMaduro\\Collision\\',
+    ],
+
+    /**
+     * 排除的具体类/接口/Trait 黑名单
+     */
+    'exclude_classes' => [],
 ];
-
-$includeClasses = [];
-
-$excludeNamespaces = [
-    'Tests\\',
-    'PHPUnit\\',
-    'Mockery\\',
-    'Faker\\',
-    'Spatie\\LaravelIgnition\\',
-    'Spatie\\Ignition\\',
-    'Symfony\\Component\\VarDumper\\',
-    'Laravel\\Telescope\\',
-    'Clockwork\\',
-    'Illuminate\\Testing\\',
-    'Database\\Migrations\\',
-    'Barryvdh\\LaravelIdeHelper\\',
-    'Laravel\\Sail\\',
-    'Laravel\\Pail\\',
-    'NunoMaduro\\Collision\\',
-];
-
-$excludes = [];
 
 // 记录初始系统类，后续用于 diff 提取新声明类
 $initialClasses = array_merge(
@@ -127,16 +141,16 @@ foreach ($classMap as $class => $file) {
     }
 
     // 检查黑名单
-    foreach ($excludeNamespaces as $bl) {
+    foreach ($config['exclude_namespaces'] as $bl) {
         if (str_starts_with($class, $bl)) {
             continue 2;
         }
     }
 
     // 检查白名单命中
-    $shouldLoad = in_array($class, $includeClasses, true);
+    $shouldLoad = in_array($class, $config['include_classes'], true);
     if (!$shouldLoad) {
-        foreach ($includeNamespaces as $ns) {
+        foreach ($config['include_namespaces'] as $ns) {
             if (str_starts_with($class, $ns)) {
                 $shouldLoad = true;
                 break;
@@ -175,9 +189,9 @@ $loads = Collection::empty()
     // 剔除初始系统类
     ->diff($initialClasses)
     // 剔除用户显式排除类
-    ->diff($excludes)
+    ->diff($config['exclude_classes'])
     // 安全过滤器
-    ->filter(function ($class) use ($excludeNamespaces) {
+    ->filter(function ($class) use ($config) {
         // 排除全局无命名空间别名类
         if (strripos($class, '\\') <= 0) {
             return false;
@@ -187,7 +201,7 @@ $loads = Collection::empty()
             return false;
         }
         // 排除黑名单命名空间
-        foreach ($excludeNamespaces as $bl) {
+        foreach ($config['exclude_namespaces'] as $bl) {
             if (str_starts_with($class, $bl)) {
                 return false;
             }
