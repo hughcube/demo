@@ -18,3 +18,11 @@ Route::prefix('login')->group(function () {
     Route::any('wechat-h5', WeChatH5Controller::class);
     Route::any('alipay-mp', AliPayMpController::class);
 });
+
+Route::prefix('benchmark')->group(function () {
+    Route::any('ping', \App\Http\Controllers\Benchmark\PingController::class);
+    Route::get('item', \App\Http\Controllers\Benchmark\ItemDetailController::class);
+    Route::post('item', \App\Http\Controllers\Benchmark\ItemCreateController::class);
+    Route::any('biz-action', \App\Http\Controllers\Benchmark\BizActionController::class);
+    Route::any('seed', \App\Http\Controllers\Benchmark\SeedController::class);
+});

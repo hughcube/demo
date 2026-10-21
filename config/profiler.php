@@ -6,10 +6,10 @@ use HughCube\Profiler\Profiler;
 use HughCube\Profiler\ProfilingFlags;
 
 return [
-    'save.handler' => Profiler::SAVER_UPLOAD,
+    'save.handler' => env('PROFILER_SAVE_HANDLER', Profiler::SAVER_UPLOAD),
 
     'save.handler.file' => [
-        'file' => storage_path('xhprof/profiler.data'),
+        'file' => env('PROFILER_SAVE_FILE', storage_path('xhprof/profiler.data')),
     ],
 
     'save.handler.upload' => [
