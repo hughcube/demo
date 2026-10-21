@@ -38,7 +38,6 @@ class Authenticate extends BaseAuthenticate
         return [
             '/api/login/*',
             '/api/logon/*',
-            '/api/benchmark/*',
         ];
     }
 }

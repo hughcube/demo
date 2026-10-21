@@ -356,7 +356,7 @@ return [
 
             // 主进程内负责网络 I/O 多路复用(epoll)的线程数。建议与容器分配的 CPU 核心数保持 1:1，
             // 避免线程过多引发频繁的 CPU 上下文切换与锁开销。
-            'reactor_num' => intval(env('OCTANE_REACTOR_NUM', 2)),
+            'reactor_num' => intval(env('OCTANE_REACTOR_NUM', 1)),
 
             // 调度模式：dispatch_mode=3 为抢占分发模式，由各空闲 Worker 竞争处理请求，
             // 彻底杜绝 dispatch_mode=2（按 fd 固定绑定）在慢请求长连接下产生的 Worker 负载不均与头阻塞。

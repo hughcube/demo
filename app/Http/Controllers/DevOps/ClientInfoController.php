@@ -8,6 +8,11 @@ use App\Http\Controllers\Controller;
 use HughCube\Laravel\Knight\Support\Str;
 use Symfony\Component\HttpFoundation\Response;
 
+/**
+ * 客户端信息检测与环境诊断控制器
+ * - 纯原生无状态解析：彻底剥离停更的 Agent 依赖，杜绝每次请求的对象反射与性能损耗
+ * - 支持 JSON 结构化与优雅的暗黑风格 HTML 双模式渲染
+ */
 class ClientInfoController extends Controller
 {
     /**
@@ -23,35 +28,27 @@ class ClientInfoController extends Controller
     protected function action(): Response
     {
         $request = $this->getRequest();
-        $ua = (string) $request->userAgent();
+        $ua = (string) ($request->userAgent() ?? '');
+        $clientIp = (string) ($request->getClientIp() ?? '127.0.0.1');
 
-        $agent = null;
-        try {
-            $agent = $request->getUserAgentDetect();
-        } catch (\Throwable) {
-        }
+        $isMobile = (bool) preg_match('/(android|iphone|ipod|mobile|phone)/i', $ua);
+        $isTablet = (bool) preg_match('/(ipad|tablet|(android(?!.*mobile)))/i', $ua);
+        $isRobot = (bool) preg_match('/(bot|spider|crawl|slurp|curl|wget|python|httpclient)/i', $ua);
 
-        $platform = $agent ? $agent->platform() : null;
-        $osVersion = ($agent && $platform) ? $agent->version($platform) : null;
-
-        $browser = $agent ? $agent->browser() : null;
-        $browserVersion = ($agent && $browser) ? $agent->version($browser) : null;
-
-        $isMobile = $agent ? $agent->isMobile() : (bool) preg_match('/(android|iphone|mobile)/i', $ua);
-        $isTablet = $agent ? $agent->isTablet() : (bool) preg_match('/(ipad|tablet)/i', $ua);
-        $isRobot = $agent ? $agent->isRobot() : (bool) preg_match('/(bot|spider|crawl|slurp)/i', $ua);
+        $os = $this->detectOperatingSystem($ua);
+        $browser = $this->detectBrowser($ua);
 
         $items = [
             '网络与请求' => [
-                '客户端 IP' => $request->ip(),
-                'User-Agent' => $request->userAgent(),
+                '客户端 IP' => $clientIp,
+                'User-Agent' => $ua ?: null,
                 '是否安全传输 (HTTPS)' => $request->isSecure() ? '是' : '否',
-                '是否内网访问' => Str::isPrivateIp($request->getClientIp()) ? '是' : '否',
+                '是否内网访问' => Str::isPrivateIp($clientIp) ? '是' : '否',
             ],
             '客户端类型识别' => [
                 '是否移动端' => $isMobile ? '是' : '否',
                 '是否平板' => $isTablet ? '是' : '否',
-                '是否爬虫机器人' => $isRobot ? '是' : '否',
+                '是否爬虫/脚本' => $isRobot ? '是' : '否',
                 '是否微信' => $request->isWeChat() ? '是' : '否',
                 '是否微信小程序' => $request->isWeChatMiniProgram() ? '是' : '否',
                 '是否企业微信' => $request->isWeCom() ? '是' : '否',
@@ -60,19 +57,17 @@ class ClientInfoController extends Controller
                 '是否支付宝' => $request->isAlipay() ? '是' : '否',
                 '是否 API 调试工具' => $request->isApiDebugTool() ? '是' : '否',
             ],
-            '操作系统与设备' => [
-                '操作系统' => $platform ?: null,
-                '系统版本' => $osVersion !== false && $osVersion !== null ? strval($osVersion) : null,
-                '设备型号' => $agent ? ($agent->device() ?: null) : null,
-                '机器人标识' => $agent ? ($agent->robot() ?: null) : null,
+            '操作系统与内核' => [
+                '操作系统' => $os['name'],
+                '系统版本' => $os['version'],
             ],
-            '浏览器与内核' => [
-                '浏览器' => $browser ?: null,
-                '浏览器版本' => $browserVersion !== false && $browserVersion !== null ? strval($browserVersion) : null,
+            '浏览器与应用' => [
+                '浏览器/应用' => $browser['name'],
+                '应用版本' => $browser['version'],
             ],
         ];
 
-        if ('json' === $this->p('format')) {
+        if ('json' === strtolower(strval($this->p('format')))) {
             return $this->asSuccess($items);
         }
 
@@ -80,6 +75,86 @@ class ClientInfoController extends Controller
     }
 
     /**
+     * 轻量高效解析操作系统
+     * @return array{name: string|null, version: string|null}
+     */
+    protected function detectOperatingSystem(string $ua): array
+    {
+        if (empty($ua)) {
+            return ['name' => null, 'version' => null];
+        }
+
+        if (preg_match('/Windows NT ([\d.]+)/i', $ua, $matches)) {
+            $verMap = ['10.0' => '10 / 11', '6.3' => '8.1', '6.2' => '8', '6.1' => '7'];
+            return ['name' => 'Windows', 'version' => $verMap[$matches[1]] ?? $matches[1]];
+        }
+
+        if (preg_match('/Mac OS X ([\d_]+)/i', $ua, $matches)) {
+            return ['name' => 'macOS', 'version' => str_replace('_', '.', $matches[1])];
+        }
+
+        if (preg_match('/Android ([\d.]+)/i', $ua, $matches)) {
+            return ['name' => 'Android', 'version' => $matches[1]];
+        }
+
+        if (preg_match('/(?:iPhone|iPad|iPod).*?OS ([\d_]+)/i', $ua, $matches)) {
+            return ['name' => 'iOS', 'version' => str_replace('_', '.', $matches[1])];
+        }
+
+        if (preg_match('/Linux/i', $ua)) {
+            return ['name' => 'Linux', 'version' => null];
+        }
+
+        return ['name' => null, 'version' => null];
+    }
+
+    /**
+     * 轻量高效解析浏览器或 App
+     * @return array{name: string|null, version: string|null}
+     */
+    protected function detectBrowser(string $ua): array
+    {
+        if (empty($ua)) {
+            return ['name' => null, 'version' => null];
+        }
+
+        if (preg_match('/MicroMessenger\/([\d.]+)/i', $ua, $matches)) {
+            return ['name' => 'WeChat', 'version' => $matches[1]];
+        }
+
+        if (preg_match('/DingTalk\/([\d.]+)/i', $ua, $matches)) {
+            return ['name' => 'DingTalk', 'version' => $matches[1]];
+        }
+
+        if (preg_match('/Feishu\/([\d.]+)/i', $ua, $matches)) {
+            return ['name' => 'Feishu', 'version' => $matches[1]];
+        }
+
+        if (preg_match('/AlipayClient\/([\d.]+)/i', $ua, $matches)) {
+            return ['name' => 'Alipay', 'version' => $matches[1]];
+        }
+
+        if (preg_match('/Edg(?:e)?\/([\d.]+)/i', $ua, $matches)) {
+            return ['name' => 'Edge', 'version' => $matches[1]];
+        }
+
+        if (preg_match('/Chrome\/([\d.]+)/i', $ua, $matches)) {
+            return ['name' => 'Chrome', 'version' => $matches[1]];
+        }
+
+        if (preg_match('/Version\/([\d.]+).*?Safari/i', $ua, $matches)) {
+            return ['name' => 'Safari', 'version' => $matches[1]];
+        }
+
+        if (preg_match('/Firefox\/([\d.]+)/i', $ua, $matches)) {
+            return ['name' => 'Firefox', 'version' => $matches[1]];
+        }
+
+        return ['name' => null, 'version' => null];
+    }
+
+    /**
+     * 渲染暗黑极客风格的诊断视图
      * @param array<string, array<string, string|null>> $items
      */
     protected function renderHtml(array $items): string
@@ -90,7 +165,7 @@ class ClientInfoController extends Controller
             foreach ($fields as $label => $value) {
                 $displayValue = null !== $value && '' !== $value
                     ? htmlspecialchars($value, ENT_QUOTES, 'UTF-8')
-                    : '<span style="color:#94a3b8">-</span>';
+                    : '<span style="color:#64748b">-</span>';
                 $body .= '<tr><td class="label">' . htmlspecialchars($label, ENT_QUOTES, 'UTF-8') . '</td><td>' . $displayValue . '</td></tr>';
             }
             $body .= '</table>';

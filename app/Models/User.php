@@ -71,6 +71,7 @@ class User extends Authenticatable implements JWTSubject, GetUserLoginAccessSecr
             'data_version' => 'integer',
             'email_verified_at' => 'datetime',
             'last_login_at' => 'datetime',
+            'password' => 'hashed',
         ];
     }
 
