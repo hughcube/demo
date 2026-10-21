@@ -23,13 +23,23 @@ class ClientInfoController extends Controller
     protected function action(): Response
     {
         $request = $this->getRequest();
-        $agent = $request->getUserAgentDetect();
+        $ua = (string) $request->userAgent();
 
-        $platform = $agent->platform();
-        $osVersion = $platform ? $agent->version($platform) : null;
+        $agent = null;
+        try {
+            $agent = $request->getUserAgentDetect();
+        } catch (\Throwable) {
+        }
 
-        $browser = $agent->browser();
-        $browserVersion = $browser ? $agent->version($browser) : null;
+        $platform = $agent ? $agent->platform() : null;
+        $osVersion = ($agent && $platform) ? $agent->version($platform) : null;
+
+        $browser = $agent ? $agent->browser() : null;
+        $browserVersion = ($agent && $browser) ? $agent->version($browser) : null;
+
+        $isMobile = $agent ? $agent->isMobile() : (bool) preg_match('/(android|iphone|mobile)/i', $ua);
+        $isTablet = $agent ? $agent->isTablet() : (bool) preg_match('/(ipad|tablet)/i', $ua);
+        $isRobot = $agent ? $agent->isRobot() : (bool) preg_match('/(bot|spider|crawl|slurp)/i', $ua);
 
         $items = [
             '网络与请求' => [
@@ -39,9 +49,9 @@ class ClientInfoController extends Controller
                 '是否内网访问' => Str::isPrivateIp($request->getClientIp()) ? '是' : '否',
             ],
             '客户端类型识别' => [
-                '是否移动端' => $agent->isMobile() ? '是' : '否',
-                '是否平板' => $agent->isTablet() ? '是' : '否',
-                '是否爬虫机器人' => $agent->isRobot() ? '是' : '否',
+                '是否移动端' => $isMobile ? '是' : '否',
+                '是否平板' => $isTablet ? '是' : '否',
+                '是否爬虫机器人' => $isRobot ? '是' : '否',
                 '是否微信' => $request->isWeChat() ? '是' : '否',
                 '是否微信小程序' => $request->isWeChatMiniProgram() ? '是' : '否',
                 '是否企业微信' => $request->isWeCom() ? '是' : '否',
@@ -53,8 +63,8 @@ class ClientInfoController extends Controller
             '操作系统与设备' => [
                 '操作系统' => $platform ?: null,
                 '系统版本' => $osVersion !== false && $osVersion !== null ? strval($osVersion) : null,
-                '设备型号' => $agent->device() ?: null,
-                '机器人标识' => $agent->robot() ?: null,
+                '设备型号' => $agent ? ($agent->device() ?: null) : null,
+                '机器人标识' => $agent ? ($agent->robot() ?: null) : null,
             ],
             '浏览器与内核' => [
                 '浏览器' => $browser ?: null,
