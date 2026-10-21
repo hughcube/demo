@@ -9,7 +9,7 @@ return [
     'save.handler' => env('PROFILER_SAVE_HANDLER', Profiler::SAVER_FILE),
 
     'save.handler.file' => [
-        'file' => env('PROFILER_SAVE_FILE', storage_path('logs/profiler.data')),
+        'file' => env('PROFILER_SAVE_FILE', storage_path('xhprof/profiler.data')),
     ],
 
     'save.handler.upload' => [

@@ -106,8 +106,3 @@ COPY --from=builder  ${APP_BASE_PATH} ${APP_BASE_PATH}
 # 在容器镜像封存前，将全量业务与 vendor 代码编译为 OPcache 操作码(Bytecode)存入持久缓存；
 # 容器启动后首批请求直接命中内存中的操作码，彻底消除运行时词法与语法解析延迟，实现真正的“全热态零延迟冷启动”
 RUN if [ "${SKIP_OPCACHE_COMPILE}" = "0" ]; then php -d opcache.enable_cli=1 /data/app/artisan opcache:compile-files; fi
-
-COPY .docker/app-entrypoint /usr/local/bin/app-entrypoint
-RUN chmod +x /usr/local/bin/app-entrypoint
-
-CMD ["/usr/local/bin/app-entrypoint"]

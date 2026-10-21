@@ -24,7 +24,6 @@
         "hughcube/laravel-wechat": "^2.2",
         "hughcube/laravel-alioss": "^1.0",
         "hughcube/laravel-octane": "^2.0",
-        "hughcube/laravel-alifc": "^3.0",
         "hughcube/laravel-knight": "^6.0",
         "hughcube/laravel-dingtalk": "^1.0",
         "hughcube/laravel-alibabacloud": "^1.3"
