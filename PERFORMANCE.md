@@ -21,10 +21,8 @@
 ### 3. 构建期全量 AOT 静态固化（消除运行时 I/O 与解析开销）
 - **权威类映射 (`Classmap Authoritative`)**：`composer dump-autoload --optimize --classmap-authoritative` 将全量类映射固化为静态数组，类定位退化为单一 $O(1)$ 内存寻址，彻底杜绝运行时使用 `file_exists` 穿透扫描磁盘 I/O。
 - **框架元数据全量缓存**：构建期完成 `config:cache`、`event:cache`、`route:cache`、`view:cache`，容器启动与接收请求时零动态路由与配置解析开销。
-- **OPcache 离线预编译 (`opcache:compile-files`)**：镜像封包前将全量代码编译为机器字节码存入持久存储，冷启动即处于全热态峰值状态。
-
-### 4. 生产采样开销归零
-- 确保生产环境 `PROFILER_ENABLE_PROBABILITY = 0`。杜绝 XHProf 在非排查期间对每个函数调用进行拦截，消除 60% 以上的无谓 CPU 计算消耗。
+- **OPcache 预加载生成 (`opcache:create-preload`)**：构建期扫描核心依赖生成 `preload.php` 并预校验，配合底层 `opcache.preload` 在容器启动时将近 500 个高频核心类/接口/Trait 一次性固化至全局共享内存，多 Worker 零开销共享。
+- **OPcache 离线预编译 (`opcache:compile-files`)**：镜像封包前将全量代码编译为机器操作码 (Bytecode) 存入持久缓存，冷启动即处于全热态峰值状态。
 
 ---
 
