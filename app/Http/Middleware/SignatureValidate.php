@@ -16,6 +16,7 @@ class SignatureValidate extends RequestSignatureValidate
         return array_merge(parent::getOptional(), [
             '/api/login/*',
             '/api/logon/*',
+            '/api/benchmark/*',
         ]);
     }
 }
