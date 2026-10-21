@@ -21,6 +21,7 @@ return new class extends Migration
             $table->bigInteger('view_count')->default(0);
             $table->json('extra_data')->nullable();
             $table->smallInteger('status')->default(1);
+            $table->bigInteger('data_version')->default(1);
             $table->timestamps();
         });
 

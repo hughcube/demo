@@ -25,7 +25,7 @@ class BizActionController extends Controller
         $actionType = $request->input('action', 'view');
 
         $result = DB::transaction(function () use ($id, $actionType, $request) {
-            $item = BenchmarkItem::findById($id);
+            $item = BenchmarkItem::find($id);
             if (!$item instanceof BenchmarkItem) {
                 return null;
             }

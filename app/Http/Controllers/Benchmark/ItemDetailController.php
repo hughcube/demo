@@ -19,7 +19,8 @@ class ItemDetailController extends Controller
             $id = intval($id);
         }
 
-        $item = BenchmarkItem::findById($id);
+        $useCache = $this->getRequest()->boolean('cache', false);
+        $item = $useCache ? BenchmarkItem::findById($id) : BenchmarkItem::find($id);
         if (!$item instanceof BenchmarkItem) {
             return $this->asResponse([
                 'code' => 404,
