@@ -1,10 +1,8 @@
 <?php
 
 use Composer\Autoload\ClassLoader;
-use HughCube\Laravel\Knight\OPcache\OPcache;
 use Illuminate\Container\Container;
 use Illuminate\Support\Collection;
-use PhpParser\ParserFactory;
 
 $basePath = getcwd();
 $preloadFile = getenv('OUTPUT_PATH') ?: $basePath.'/preload.php';
@@ -183,43 +181,6 @@ foreach ($discoveredClasses as $class) {
 }
 
 echo sprintf('  Successfully scanned and loaded %d classes/interfaces/traits.', $loadedCount), PHP_EOL;
-
-// 4.4 兼容原有 WITH_REMOTE_SCRIPTS 机制
-if ('1' === getenv('WITH_REMOTE_SCRIPTS')) {
-    echo 'Loading remote scripts...', PHP_EOL;
-    try {
-        $opcache = OPcache::i();
-        $remoteScripts = $opcache->getRemoteScripts();
-        $parser = (new ParserFactory())->createForNewestSupportedVersion();
-        $remoteLoaded = 0;
-
-        foreach ($remoteScripts as $script) {
-            $file = base_path($script);
-            if (!is_file($file)) {
-                continue;
-            }
-            $content = @file_get_contents($file);
-            if (empty($content)) {
-                continue;
-            }
-            $stmts = $parser->parse($content);
-            if (!$stmts) {
-                continue;
-            }
-            $parsedClasses = $opcache->getPHPParserStmtClasses($stmts);
-            foreach ($parsedClasses as $parsedClass) {
-                try {
-                    if (class_exists($parsedClass, true) || interface_exists($parsedClass, true) || trait_exists($parsedClass, true)) {
-                        $remoteLoaded++;
-                    }
-                } catch (Throwable $e) {}
-            }
-        }
-        echo sprintf('  Loaded %d classes from remote scripts.', $remoteLoaded), PHP_EOL;
-    } catch (Throwable $e) {
-        fwrite(STDERR, 'Warning: Failed to fetch remote scripts: '.$e->getMessage().PHP_EOL);
-    }
-}
 
 // 5. 过滤与排序 (Filtering & Topological Sorting)
 $loads = Collection::empty()
