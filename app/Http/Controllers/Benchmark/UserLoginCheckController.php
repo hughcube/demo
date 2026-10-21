@@ -38,7 +38,6 @@ class UserLoginCheckController extends Controller
             $user->openid = $openid;
             $user->name = 'User_' . substr(md5($openid), 0, 8);
             $user->email = $openid . '@demo.local';
-            $user->password = '';
             $user->access_secret = Str::random(32);
         }
 
