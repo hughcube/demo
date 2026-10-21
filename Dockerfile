@@ -107,36 +107,7 @@ COPY --from=builder  ${APP_BASE_PATH} ${APP_BASE_PATH}
 # 容器启动后首批请求直接命中内存中的操作码，彻底消除运行时词法与语法解析延迟，实现真正的“全热态零延迟冷启动”
 RUN if [ "${SKIP_OPCACHE_COMPILE}" = "0" ]; then php -d opcache.enable_cli=1 /data/app/artisan opcache:compile-files; fi
 
-CMD /bin/sh -c 'php -r " \
-    \$f = getenv(\"OCTANE_STATE_FILE\") ?: \"/data/app/storage/run/octane-server-state.json\"; \
-    if (file_exists(\$f)) { \
-        \$d = json_decode(file_get_contents(\$f), true); \
-        if (isset(\$d[\"state\"])) { \
-            if (\$w = getenv(\"OCTANE_MAX_WORKERS\") ?: getenv(\"OCTANE_WORKERS\")) { \
-                \$d[\"state\"][\"workers\"] = (string)\$w; \
-                \$d[\"state\"][\"defaultServerOptions\"][\"worker_num\"] = (string)\$w; \
-            } \
-            if (\$mr = getenv(\"OCTANE_MAX_REQUESTS\")) { \
-                \$d[\"state\"][\"maxRequests\"] = (string)\$mr; \
-                \$d[\"state\"][\"defaultServerOptions\"][\"max_request\"] = (string)\$mr; \
-            } \
-            if (\$r = getenv(\"OCTANE_REACTOR_NUM\")) { \
-                \$d[\"state\"][\"defaultServerOptions\"][\"reactor_num\"] = (string)\$r; \
-            } \
-            file_put_contents(\$f, json_encode(\$d, JSON_UNESCAPED_SLASHES)); \
-        } \
-    } \
-"; exec LARAVEL_OCTANE=1 /usr/local/bin/php \
-        -d expose_php="Off" \
-        -d variables_order="EGPCS" \
-        -d auto_globals_jit="On" \
-        -d pcre.jit="1" \
-        -d output_buffering="4096" \
-        -d default_socket_timeout="3" \
-        -d realpath_cache_size="32M" \
-        -d realpath_cache_ttl="86400" \
-        -d memory_limit="1024M" \
-        -d zend.assertions="-1" \
-        -d error_reporting="E_ALL" \
-        -d error_log="${LOG_PATH}/php-error.log" \
-        "${APP_BASE_PATH}/vendor/bin/swoole-server" "${OCTANE_STATE_FILE}"'
+COPY .docker/app-entrypoint /usr/local/bin/app-entrypoint
+RUN chmod +x /usr/local/bin/app-entrypoint
+
+CMD ["/usr/local/bin/app-entrypoint"]
