@@ -1,6 +1,6 @@
 # Demo 性能优化与 2C8G 生产基准指南
 
-本文档记录本项目针对吞吐量与低延迟所实施的**核心性能优化工作**，并结合线上 **2C8G 服务器（单机混部 9 个业务容器）的真实生产配置**，通过计算机排队论与利特尔法则（Little's Law），详细剖析 **Worker 数量、处理耗时、数据库操作次数与实测 QPS / 延迟的物理数学关系**。
+本文档记录本项目针对吞吐量与低延迟所实施的**核心性能优化工作**，并结合线上 **2C8G 服务器规格**，通过计算机排队论与利特尔法则（Little's Law），详细剖析 **Worker 数量、处理耗时、数据库操作次数与实测 QPS / 延迟的物理数学关系**。
 
 ---
 
@@ -30,38 +30,16 @@
 
 ## 二、 2C8G 规格下的最佳生产配置实现
 
-在标准架构设计中，**Octane 拓扑参数属于构建期不可变基础设施范畴，应由 Dockerfile ARG 在构建期固化进状态文件，运行期 `.env` 根本无需也不应重复配置这些进程池参数**。
+在标准架构设计中，**Octane 拓扑参数属于构建期不可变基础设施范畴，由 Dockerfile ARG 在构建期固化进状态文件，运行期 `.env` 根本无需也不应重复配置这些进程池参数**。
 
-### 1. 构建期最佳 ARG 注入参数（Dockerfile）
-在云效流水线或本地构建时，通过 `--build-arg` 将目标机型拓扑直接固化进镜像：
+在云效流水线或本地构建时，通过 `--build-arg` 将 2C8G 目标机型拓扑直接固化进镜像：
 
 ```dockerfile
 # 2C8G 规格最佳构建固化参数
-ARG OCTANE_MAX_WORKERS=8     # 2 核 CPU 最佳黄金配比（4~8）
-ARG OCTANE_MAX_REQUESTS=100000 # 长效运行，消除频繁重启抖动
+ARG OCTANE_MAX_WORKERS=8        # 2 核 CPU 最佳黄金配比（4~8）
+ARG OCTANE_MAX_REQUESTS=100000    # 长效运行，消除频繁重启抖动
 ARG OCTANE_MAX_TASK_WORKERS=1
-ARG OCTANE_REACTOR_NUM=1     # 匹配 2 核 CPU 的 epoll 网络 I/O 线程
-```
-
-### 2. 运行期容器资源规格与极简参数 (`compose.yaml`)
-运行期只配置必须的宿主机资源配额，彻底免去在 `.env` 中重复覆盖 Octane 拓扑：
-
-```yaml
-services:
-  octane:
-    image: <registry>/demo-octane:latest
-    restart: unless-stopped
-    init: true
-    mem_reservation: 64m
-    mem_limit: 512m          # 2C8G 混部环境下严格限制在 512MB 内，杜绝整机 OOM
-    memswap_limit: 1024m
-    ports:
-      - 127.0.0.1:9095:80
-    environment:
-      TZ: Asia/Shanghai
-      LARAVEL_OCTANE: 1
-      OCTANE_SERVER: swoole
-      PROFILER_ENABLE_PROBABILITY: 0   # 生产默认关闭全量采样
+ARG OCTANE_REACTOR_NUM=1        # 匹配 2 核 CPU 的 epoll 网络 I/O 线程
 ```
 
 ---
@@ -87,7 +65,7 @@ $$QPS = \frac{W}{T_{\text{service}}}$$
 
 ## 四、 2C8G 真实业务性能表现标签（以 `Model::findById` 压测为基准）
 
-在当前宿主机（2 核物理 CPU、512MB 容器限额、同机并存 9 个容器）环境下，以真实的业务数据链路为基准，实测吞吐量表现标签如下：
+在 2C8G 服务器规格（分配 2 核 CPU、512MB 内存）环境下，以真实的业务数据链路为基准，实测吞吐量表现标签如下：
 
 | 性能表现标签 | 数据库操作细节与网络 RTT | Worker 真实耗时 ($T_{\text{service}}$) | 实测单机 QPS | 50 并发排队延迟 (wrk Latency) |
 | :--- | :--- | :--- | :--- | :--- |
@@ -98,4 +76,5 @@ $$QPS = \frac{W}{T_{\text{service}}}$$
 | 🏷️ **标签五：超高频基准短路** | **0 次 DB，0 次网络，不可变单例短路**<br>绕过 HTTP Kernel 与洋葱模型，只读单例极速短路响应 | **约 0.8 ms** | **650 ~ 1,100 QPS** | **40 ~ 50 ms** |
 
 > **容量换算参考**：
-> 在当前 2C8G 且混部 9 个容器的受限环境下，单个 512MB 的 Octane 容器能够稳定输出 **500 ~ 600 QPS** 的带库业务吞吐（单实例可承载 500 万 ~ 1,000 万 PV/天）；通过前置 SLB 蓝绿部署双实例即可平稳支撑 **1,000 ~ 1,200 QPS**。
+> 在 2C8G 服务器规格下，单个 512MB 的 Octane 容器能够稳定输出 **500 ~ 600 QPS** 的带库业务吞吐（单实例可承载 500 万 ~ 1,000 万 PV/天）；通过前置负载均衡部署双实例即可平稳支撑 **1,000 ~ 1,200 QPS**。
+
