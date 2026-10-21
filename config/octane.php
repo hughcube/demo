@@ -60,7 +60,6 @@ return [
         \Laravel\Octane\Events\WorkerStarting::class => [
             \Laravel\Octane\Listeners\EnsureUploadedFilesAreValid::class,
             \Laravel\Octane\Listeners\EnsureUploadedFilesCanBeMoved::class,
-            \App\Listeners\WarmModelsListener::class,
         ],
 
         \Laravel\Octane\Events\RequestReceived::class => Collection::make([
