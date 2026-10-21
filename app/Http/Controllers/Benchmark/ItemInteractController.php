@@ -38,8 +38,8 @@ class ItemInteractController extends Controller
                     WHERE id = :id AND status = 1
                     RETURNING id, view_count
                 ), inserted_log AS (
-                    INSERT INTO benchmark_logs (item_id, action, ip, created_at, updated_at)
-                    SELECT id, :action, :ip, NOW(), NOW() FROM updated
+                    INSERT INTO benchmark_logs (item_id, action, ip, created_at)
+                    SELECT id, :action, :ip, NOW() FROM updated
                     RETURNING id AS log_id
                 )
                 SELECT (SELECT id FROM updated) AS item_id,
@@ -88,7 +88,6 @@ class ItemInteractController extends Controller
                 'action' => $actionType,
                 'ip' => $ip,
                 'created_at' => now(),
-                'updated_at' => now(),
             ]);
 
             return [
