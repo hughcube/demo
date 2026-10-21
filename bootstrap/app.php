@@ -56,6 +56,7 @@ return Application::configure(basePath: dirname(__DIR__))
     })
     ->withProviders([
         \App\Providers\AppServiceProvider::class,
+        \App\Providers\AgentServiceProvider::class,
     ])
     ->withSingletons([
         \Illuminate\Contracts\Debug\ExceptionHandler::class => \App\Exceptions\Handler::class

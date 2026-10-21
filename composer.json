@@ -100,7 +100,8 @@
         "laravel": {
             "dont-discover": [
                 "laravel/tinker",
-                "nunomaduro/termwind"
+                "nunomaduro/termwind",
+                "jenssegers/agent"
             ]
         }
     },
