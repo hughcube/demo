@@ -25,4 +25,10 @@ Route::prefix('benchmark')->group(function () {
     Route::post('item', \App\Http\Controllers\Benchmark\ItemCreateController::class);
     Route::any('biz-action', \App\Http\Controllers\Benchmark\BizActionController::class);
     Route::any('seed', \App\Http\Controllers\Benchmark\SeedController::class);
+
+    // 贴合真实生产业务场景的高拟真压测接口
+    Route::any('user/login-check', \App\Http\Controllers\Benchmark\UserLoginCheckController::class);
+    Route::get('item/list', \App\Http\Controllers\Benchmark\ItemListController::class);
+    Route::get('item/detail-full', \App\Http\Controllers\Benchmark\ItemDetailFullController::class);
+    Route::any('item/interact', \App\Http\Controllers\Benchmark\ItemInteractController::class);
 });
