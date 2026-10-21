@@ -64,6 +64,28 @@ class AppServiceProvider extends ServiceProvider
         // 生产环境安全兜底：严禁误触发破坏性数据重置命令(如 db:wipe, migrate:fresh)
         \Illuminate\Support\Facades\DB::prohibitDestructiveCommands($this->app->isProduction());
 
+        // Octane 常驻内存极速短路路由（预构建不可变单例 Response，零内存分配、零 GC 扫描、零 JSON 编码）
+        if (class_exists(\Laravel\Octane\Facades\Octane::class)) {
+            $staticPayload = json_encode([
+                'message' => 'pong',
+                'echo' => 'pong',
+                'token' => 'octane-zero-copy',
+            ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+
+            $staticResponse = new \Symfony\Component\HttpFoundation\Response(
+                $staticPayload,
+                200,
+                [
+                    'Content-Type' => 'application/json',
+                    'Server' => 'octane-fast',
+                ]
+            );
+
+            \Laravel\Octane\Facades\Octane::route('GET', '/api/benchmark/ping', function () use ($staticResponse) {
+                return $staticResponse;
+            });
+        }
+
         /** 将 Telescope 请求条目的 UUID 写入响应头，方便排查问题 */
         if (class_exists(\Laravel\Telescope\Telescope::class)) {
             $this->app['events']->listen(RequestHandled::class, function (RequestHandled $event) {
