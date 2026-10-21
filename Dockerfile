@@ -19,15 +19,22 @@ ARG COMPOSER_NO_DEV=1
 # 让构建期的 artisan 命令(如 config:cache)提前感知 Swoole 环境并固化配置
 ARG LARAVEL_OCTANE=1
 
-# 构建期固化 Worker/Reactor 等常驻进程池拓扑参数，消除容器启动探测开销
-ARG OCTANE_GARBAGE=50
+# 常驻内存进程池与网络拓扑参数：
+# 通过 ARG 在镜像构建阶段传入，以支持不同部署环境（如测试/生产、不同 CPU/内存规格实例）构建专有镜像；
+# 在构建阶段执行 php artisan config:cache 时，将环境变量直接固化进配置缓存，消除运行期动态读取解析开销。
 ARG OCTANE_MAX_WORKERS=2
 ARG OCTANE_MAX_REQUESTS=500
 ARG OCTANE_MAX_TASK_WORKERS=1
-ARG OCTANE_MAX_EXECUTION_TIME=30
 ARG OCTANE_REACTOR_NUM=1
 
-# 生产镜像构建版本号（在流水线中通过 --build-arg BUILD_VERSION=<commit/tag> 注入）
+# 生产镜像构建版本号（在流水线中通过 --build-arg BUILD_VERSION=<commit/tag> 注入）：
+# - 云效(Aliyun Flow)流水线配置：在「镜像构建并推送至阿里云镜像仓库」任务的「构建参数 (ARGS)」中配置：
+#   {"BASE_IMAGE":"${DOCKER_IMAGE_REPO}:${DOCKER_IMAGE_BASE_TAG}","BUILD_VERSION":"${CI_COMMIT_ID:-${BUILD_NUMBER}}"}
+# - 云效流水线内置环境变量说明：
+#   * ${CI_COMMIT_ID}：当前最后一次代码提交的 8 位短 Commit ID（推荐作为业务版本）
+#   * ${CI_COMMIT_SHA}：最后一次代码提交的 40 位完整 Commit SHA
+#   * ${CI_COMMIT_REF_NAME}：代码库的分支名或 Tag 名（如 master）
+#   * ${BUILD_NUMBER}：流水线运行自然自增编号（1, 2, 3...）
 ARG BUILD_VERSION="dev"
 
 COPY . .
