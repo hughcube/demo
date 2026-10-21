@@ -28,12 +28,12 @@ class ClientInfoController extends Controller
     protected function action(): Response
     {
         $request = $this->getRequest();
-        $ua = (string) ($request->userAgent() ?? '');
-        $clientIp = (string) ($request->getClientIp() ?? '127.0.0.1');
+        $ua = strval($request->userAgent() ?? '');
+        $clientIp = strval($request->getClientIp() ?? '127.0.0.1');
 
-        $isMobile = (bool) preg_match('/(android|iphone|ipod|mobile|phone)/i', $ua);
-        $isTablet = (bool) preg_match('/(ipad|tablet|(android(?!.*mobile)))/i', $ua);
-        $isRobot = (bool) preg_match('/(bot|spider|crawl|slurp|curl|wget|python|httpclient)/i', $ua);
+        $isMobile = boolval(preg_match('/(android|iphone|ipod|mobile|phone)/i', $ua));
+        $isTablet = boolval(preg_match('/(ipad|tablet|(android(?!.*mobile)))/i', $ua));
+        $isRobot = boolval(preg_match('/(bot|spider|crawl|slurp|curl|wget|python|httpclient)/i', $ua));
 
         $os = $this->detectOperatingSystem($ua);
         $browser = $this->detectBrowser($ua);
