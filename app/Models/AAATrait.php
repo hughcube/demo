@@ -43,7 +43,7 @@ trait AAATrait
 
     public function getCache(): null|Repository
     {
-        return Cache::store();
+        return null;
     }
 
     public function scopeValid($query): Builder

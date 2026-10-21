@@ -359,9 +359,9 @@ return [
             // 避免线程过多引发频繁的 CPU 上下文切换与锁开销。
             'reactor_num' => intval(env('OCTANE_REACTOR_NUM', 2)),
 
-            // 调度模式：dispatch_mode=2 为固定模式（按连接轮询/绑定），与 HTTP Keep-Alive 及 Laravel Octane 深度兼容且性能稳定；
-            // 在高并发长连接持续压测场景下，避免抢占模式下的加锁争抢。
-            'dispatch_mode' => intval(env('OCTANE_DISPATCH_MODE', 2)),
+            // 调度模式：dispatch_mode=3 为抢占分发模式，由各空闲 Worker 竞争处理请求，
+            // 彻底杜绝 dispatch_mode=2（按 fd 固定绑定）在慢请求长连接下产生的 Worker 负载不均与头阻塞。
+            'dispatch_mode' => intval(env('OCTANE_DISPATCH_MODE', 3)),
 
             // Task 进程间通信方式。默认 1 (Unix Socket) 内存管道传输性能最优，无需额外依赖系统内核 IPC 消息队列。
             #'task_ipc_mode' => 1,

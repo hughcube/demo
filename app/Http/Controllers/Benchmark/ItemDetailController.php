@@ -19,8 +19,8 @@ class ItemDetailController extends Controller
             $id = intval($id);
         }
 
-        $useCache = $this->getRequest()->boolean('cache', false);
-        $item = $useCache ? BenchmarkItem::findById($id) : BenchmarkItem::find($id);
+        // 100% 数据库直接查询，完全不走任何缓存驱动或 Knight 缓存
+        $item = BenchmarkItem::query()->where('id', $id)->first();
         if (!$item instanceof BenchmarkItem) {
             return $this->asResponse([
                 'code' => 404,
