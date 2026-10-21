@@ -358,8 +358,8 @@ return [
             // 避免线程过多引发频繁的 CPU 上下文切换与锁开销。
             'reactor_num' => intval(env('OCTANE_REACTOR_NUM', 1)),
 
-            // 调度模式：dispatch_mode=2 为固定模式（按连接轮询/绑定），与 HTTP Keep-Alive 及 Laravel Octane 深度兼容且性能稳定；
-            // 也支持 dispatch_mode=3（无 delay_receive 下的抢占分发）。默认选用兼容性最好的模式。
+            // 调度模式：dispatch_mode=3 为抢占分发模式，由各空闲 Worker 竞争处理请求，
+            // 彻底杜绝 dispatch_mode=2（按 fd 固定绑定）在慢请求长连接下产生的 Worker 负载不均与头阻塞。
             'dispatch_mode' => intval(env('OCTANE_DISPATCH_MODE', 3)),
 
             // Task 进程间通信方式。默认 1 (Unix Socket) 内存管道传输性能最优，无需额外依赖系统内核 IPC 消息队列。
@@ -388,7 +388,7 @@ return [
 
             // TCP 监听队列最大长度(Accept 队列)。在突发高并发流量进入时防止队列溢出导致连接被丢弃或重试。
             // 需配合系统内核 net.core.somaxconn 同步调优使用。
-            'backlog' => intval(env('OCTANE_BACKLOG', 2048)),
+            'backlog' => intval(env('OCTANE_BACKLOG', 4096)),
 
             // 注意：enable_delay_receive 在 Swoole Http Server 下会导致 HTTP 协议握手死锁，必须禁用。
             #'enable_delay_receive' => false,
@@ -402,7 +402,7 @@ return [
 
             // CPU 核心亲和性绑定。将 Worker 进程与 Reactor 线程绑定到固定物理核心，
             // 减少跨核心调度导致的 CPU L1/L2 高速缓存(Cache Line)失效，显著降低高并发下的 P99 尾部延迟。
-            #'open_cpu_affinity' => true,
+            'open_cpu_affinity' => true,
 
             // TCP Fast Open(TFO)。允许在三次握手阶段携带 SYN 数据包直接发起首包数据传输，消除 1 个握手 RTT 往返时延。
             // 需 Linux 内核 net.ipv4.tcp_fastopen 支持。

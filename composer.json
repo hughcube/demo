@@ -16,7 +16,6 @@
         "laravel/octane": "^2.20",
         "laravel/tinker": "^3.0",
         "tymon/jwt-auth": "^2.3",
-        "jenssegers/agent": "^2.6",
         "yansongda/laravel-pay": "^3.7",
         "overtrue/laravel-wechat": "^8.0",
         "hughcube/id-card": "^1.0",
@@ -24,7 +23,6 @@
         "hughcube/laravel-wechat": "^2.2",
         "hughcube/laravel-alioss": "^1.0",
         "hughcube/laravel-octane": "^2.0",
-        "hughcube/laravel-alifc": "^3.0",
         "hughcube/laravel-knight": "^6.0",
         "hughcube/laravel-dingtalk": "^1.0",
         "hughcube/laravel-alibabacloud": "^1.3"
