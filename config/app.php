@@ -147,6 +147,10 @@ return [
         Illuminate\Encryption\EncryptionServiceProvider::class,
         Illuminate\Filesystem\FilesystemServiceProvider::class,
 
+        // 框架核心基石服务：严禁裁剪误杀！
+        // 1. 维护模式开销源自 HTTP 中间件(PreventRequestsDuringMaintenance)，应用全局中间件早已彻底剔除，HTTP 请求链路耗时与 I/O 为纯零开销；
+        // 2. 控制台命令(artisan about、schedule:run)与调度守护进程强依赖其注册的 MaintenanceMode 契约，裁剪会导致 Target not instantiable 崩溃；
+        // 3. 同时承载 HttpFactory(HTTP Client)、FormRequest 自动验证及 Request 宏等关键底座，必须保留。
         Illuminate\Foundation\Providers\FoundationServiceProvider::class,
 
         // API 认证走第三方或原生 password_hash，无需顶层默认长驻 HashManager
