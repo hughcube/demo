@@ -52,6 +52,25 @@ class PerformanceTest extends TestCase
     }
 
     /**
+     * 验证数据库连接在 Octane 与 PgBouncer 架构下默认关闭底层 PDO 持久连接
+     */
+    public function test_database_persistent_connection_is_disabled_by_default(): void
+    {
+        $pgsqlOptions = config('database.connections.pgsql.options', []);
+        $mysqlOptions = config('database.connections.mysql.options', []);
+
+        $this->assertFalse(
+            !empty($pgsqlOptions[PDO::ATTR_PERSISTENT]),
+            'PostgreSQL 在常驻内存与 PgBouncer 架构下默认不得开启底层 PDO::ATTR_PERSISTENT'
+        );
+
+        $this->assertFalse(
+            !empty($mysqlOptions[PDO::ATTR_PERSISTENT]),
+            'MySQL 在常驻内存环境下默认不得开启底层 PDO::ATTR_PERSISTENT'
+        );
+    }
+
+    /**
      * 验证 Octane 的 RequestReceived 监听器列表中已剔除无用的 Web/View 监听器
      */
     public function test_octane_request_received_listeners_are_pruned(): void
