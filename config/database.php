@@ -67,8 +67,8 @@ return [
             'strict' => true,
             'engine' => null,
             'options' => [
-                // 复用底层的 TCP 连接池，避免每个请求重新建立连接的高额网络握手与身份认证延迟
-                PDO::ATTR_PERSISTENT => boolval(env('DB_MYSQL_PERSISTENT', true)),
+                // 在 Octane 常驻内存环境下由 Worker 自行维护连接生命周期，避免底层 PDO 持久连接干扰断线重连与事务清理，默认关闭 false
+                PDO::ATTR_PERSISTENT => boolval(env('DB_MYSQL_PERSISTENT', false)),
 
                 // 本地模拟预处理：默认 false 会导致每次查询先发 PREPARE 再发 EXECUTE(2 次网络 RTT 往返)；
                 // 开启后由客户端本地安全绑定参数单次发包执行，网络往返直接减半(1 次 RTT)，在高并发与跨机房场景收益显著
@@ -99,8 +99,9 @@ return [
             'search_path' => 'public',
             'sslmode' => 'prefer',
             'options' => [
-                // 跨请求复用底层数据库连接
-                PDO::ATTR_PERSISTENT => boolval(env('DB_PGSQL_PERSISTENT', true)),
+                // 在 Octane / Swoole / FrankenPHP 常驻内存模式下，Worker 进程天然常驻复用数据库连接；
+                // 且在配合 PgBouncer (事务池化模式) 等外部连接池时，底层 PDO 绝不应开启持久连接，避免连接状态残留或僵死，默认关闭 false
+                PDO::ATTR_PERSISTENT => boolval(env('DB_PGSQL_PERSISTENT', false)),
 
                 // 本地模拟预处理：减少向数据库服务端发送预处理的网络往返(RTT 减半)
                 PDO::ATTR_EMULATE_PREPARES => true,
