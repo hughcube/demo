@@ -350,9 +350,9 @@ return [
         #'mode' => SWOOLE_BASE,
 
         'options' => [
-            // 由容器运行时或安全上下文(securityContext)统一约束，无需 Swoole 代码层重复 setuid。
-            #'user' => 'www-data',
-            #'group' => 'www-data',
+            // 指定 Worker / TaskWorker 子进程降权运行的非特权用户与用户组
+            'user' => 'www-data',
+            'group' => 'www-data',
 
             // 主进程内负责网络 I/O 多路复用(epoll)的线程数。建议与容器分配的 CPU 核心数保持 1:1，
             // 避免线程过多引发频繁的 CPU 上下文切换与锁开销。
@@ -361,6 +361,9 @@ return [
             // 调度模式：dispatch_mode=3 为抢占分发模式，由各空闲 Worker 竞争处理请求，
             // 彻底杜绝 dispatch_mode=2（按 fd 固定绑定）在慢请求长连接下产生的 Worker 负载不均与头阻塞。
             'dispatch_mode' => intval(env('OCTANE_DISPATCH_MODE', 3)),
+
+            // 抢占分发模式下关闭 send_yield，避免 Swoole 6.2+ 报无意义配置警告
+            'send_yield' => false,
 
             // Task 进程间通信方式。默认 1 (Unix Socket) 内存管道传输性能最优，无需额外依赖系统内核 IPC 消息队列。
             #'task_ipc_mode' => 1,
@@ -420,7 +423,36 @@ return [
             'log_rotation' => 2, // SWOOLE_LOG_ROTATION_DAILY
 
             // Swoole 守护进程运行日志，统一收敛到 storage/run/，便于容器卷持久化与排查。
-            'log_file' => storage_path('run/swoole_http.log'),
+            // 当 user/group 为 www-data 降权运行时，确保目录与日志文件具备 www-data 写入与轮转权限
+            'log_file' => (function () {
+                $path = storage_path('run/swoole_http.log');
+                $dir = dirname($path);
+
+                if (!is_dir($dir)) {
+                    @mkdir($dir, 0777, true);
+                }
+                @chmod($dir, 0777);
+
+                if (function_exists('posix_getpwnam')) {
+                    $u = @posix_getpwnam('www-data');
+                    if ($u) {
+                        @chown($dir, $u['uid']);
+                        @chgrp($dir, $u['gid']);
+                    }
+                }
+
+                if (!file_exists($path)) {
+                    @touch($path);
+                }
+                @chmod($path, 0666);
+
+                if (isset($u) && $u) {
+                    @chown($path, $u['uid']);
+                    @chgrp($path, $u['gid']);
+                }
+
+                return $path;
+            })(),
         ],
     ],
 
