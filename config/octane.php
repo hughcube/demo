@@ -419,8 +419,8 @@ return [
             // 生产环境(非Debug)仅记录严重系统异常，杜绝频繁打 trace 日志造成容器磁盘 I/O 竞争与日志刷屏。
             'log_level' => env('APP_DEBUG') ? 0 /** SWOOLE_LOG_DEBUG */ : 5 /** SWOOLE_LOG_ERROR */,
 
-            // 每日自动切分归档(SWOOLE_LOG_ROTATION_DAILY)，防止单个日志文件无限膨胀撑爆容器只读根分区。
-            'log_rotation' => 2, // SWOOLE_LOG_ROTATION_DAILY
+            // 容器私有临时层随发版生命周期自然重置，无需在容器内做每日文件切分，避免切片堆积与重命名 I/O 扰动。
+            #'log_rotation' => 2, // SWOOLE_LOG_ROTATION_DAILY
 
             // Swoole 守护进程运行日志，统一收敛到 storage/run/，便于容器卷持久化与排查。
             'log_file' => storage_path('run/swoole_http.log'),
