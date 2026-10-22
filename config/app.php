@@ -147,8 +147,7 @@ return [
         Illuminate\Encryption\EncryptionServiceProvider::class,
         Illuminate\Filesystem\FilesystemServiceProvider::class,
 
-        // 云原生架构由网关摘流，无需应用单机维护模式与旧式命令支持
-        #Illuminate\Foundation\Providers\FoundationServiceProvider::class,
+        Illuminate\Foundation\Providers\FoundationServiceProvider::class,
 
         // API 认证走第三方或原生 password_hash，无需顶层默认长驻 HashManager
         #Illuminate\Hashing\HashServiceProvider::class,
