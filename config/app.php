@@ -126,25 +126,34 @@ return [
     ],
 
     'providers' => [
+        // 核心认证鉴权：承载 AuthManager、用户上下文与 Gate 权限门面
         Illuminate\Auth\AuthServiceProvider::class,
 
-        // 纯 RESTful API 无 WebSocket 双向广播需求，消除广播管理器初始化
+        // 核心裁剪：纯 RESTful API 无 WebSocket 双向广播需求，消除广播管理器与路由初始化
         #Illuminate\Broadcasting\BroadcastServiceProvider::class,
 
+        // 异步分发总线：承载 Dispatcher 与命令分发
         Illuminate\Bus\BusServiceProvider::class,
+
+        // 缓存管理器：承载 Cache 门面与多种 Cache Store 驱动适配
         Illuminate\Cache\CacheServiceProvider::class,
 
-        // 核心裁剪：HTTP 请求剔除数百个控制台命令反射与参数定义，仅在 artisan CLI 入口按需注册
+        // 核心裁剪：HTTP 常驻 Worker 彻底剔除数百个控制台命令反射与参数定义，仅在 artisan CLI 入口与测试按需注册
         #Illuminate\Foundation\Providers\ConsoleSupportServiceProvider::class,
 
-        // 常驻内存使用 Swoole 原生并发机制，无需 Laravel 11+ 并发闭包多进程抽象
+        // 核心裁剪：常驻内存使用 Swoole 原生协程并发机制，无需 Laravel 11+ 基于多进程/Fork 的 Concurrency 抽象
         #Illuminate\Concurrency\ConcurrencyServiceProvider::class,
 
-        // 无状态 Token 鉴权，卸载 CookieJar 解析与加解密开销
+        // 核心裁剪：全面基于 Header Token/JWT 无状态鉴权，卸载 CookieJar 解析、签名校验与加解密开销
         #Illuminate\Cookie\CookieServiceProvider::class,
 
+        // 数据库持久层：承载 DatabaseManager、Connection 注册与 Eloquent ORM
         Illuminate\Database\DatabaseServiceProvider::class,
+
+        // 加解密核心：承载 Encrypter(AES-256) 与加解密门面
         Illuminate\Encryption\EncryptionServiceProvider::class,
+
+        // 文件系统驱动：承载 FilesystemManager(本地/云存储驱动)
         Illuminate\Filesystem\FilesystemServiceProvider::class,
 
         // 框架核心基石服务：严禁裁剪误杀！
@@ -153,32 +162,40 @@ return [
         // 3. 同时承载 HttpFactory(HTTP Client)、FormRequest 自动验证及 Request 宏等关键底座，必须保留。
         Illuminate\Foundation\Providers\FoundationServiceProvider::class,
 
-        // API 认证走第三方或原生 password_hash，无需顶层默认长驻 HashManager
-        #Illuminate\Hashing\HashServiceProvider::class,
+        // 密码哈希服务：必须保留！承载 Model 属性 password=>hashed 转换、Hash 门面及密码校验规则；为 Deferrable 惰性单例，不被调用时零运行时损耗
+        Illuminate\Hashing\HashServiceProvider::class,
 
-        // 发信与通知全量异步丢入队列处理，同步 HTTP 链路不加载庞大发信驱动栈
+        // 核心裁剪：业务完全不使用 Laravel Mail 发信系统，告警与通知走专属通道，彻底剔除发信驱动栈
         #Illuminate\Mail\MailServiceProvider::class,
+
+        // 核心裁剪：业务完全不使用 Laravel Notification 通知渠道，消息通知统一走钉钉/企微等专属通道，彻底剔除通知管理器
         #Illuminate\Notifications\NotificationServiceProvider::class,
 
-        // API 返回纯 JSON 数据结构，无需服务端渲染 HTML Tailwind/Bootstrap 分页标签视图
+        // 核心裁剪：团队规范统一由控制器/Repository 显式处理分页参数(page/limit)，禁止使用框架默认 $query->paginate()，消除 Paginator 请求解析器与 Blade HTML 视图加载开销
         #Illuminate\Pagination\PaginationServiceProvider::class,
 
-        // 密码重置走手机短信验证码或三方授权，无需 Web 找回密码邮件与 Token 链接支持
-        #Illuminate\Auth\Passwords\PasswordResetServiceProvider::class,
+        // 管道服务：必须保留！承载 Pipeline 门面调用契约(Pipeline::send)；原生实现 DeferrableProvider 按需延迟解析，零常驻损耗
+        Illuminate\Pipeline\PipelineServiceProvider::class,
 
-        // 洋葱中间件执行直接 new Pipeline，无需在容器中绑定全局单例 Hub
-        #Illuminate\Pipeline\PipelineServiceProvider::class,
-
+        // 消息队列系统：承载 QueueManager、队列任务分发与监听
         Illuminate\Queue\QueueServiceProvider::class,
+
+        // Redis 驱动服务：必须保留！实现 DeferrableProvider 惰性连接，仅在显式调用 Redis 门面或配置 Redis 驱动时按需初始化
         Illuminate\Redis\RedisServiceProvider::class,
 
-        // 全面基于 JWT/Token 无状态认证，彻底消除 Web Session 读写与锁 I/O
+        // 核心裁剪：无状态 API 走手机短信验证码或三方授权，无需 Web 找回密码邮件与 Password Broker 支持
+        #Illuminate\Auth\Passwords\PasswordResetServiceProvider::class,
+
+        // 核心裁剪：全面基于 JWT/Token 无状态认证，彻底消除 Web Session 读写与 Session 锁 I/O
         #Illuminate\Session\SessionServiceProvider::class,
 
+        // 多语言本地化：承载 Translator 与验证提示语翻译字典
         Illuminate\Translation\TranslationServiceProvider::class,
+
+        // 核心表单验证：承载 ValidationFactory 与全部内置校验规则
         Illuminate\Validation\ValidationServiceProvider::class,
 
-        // 框架控制台命令(ConsoleSupport)与核心异常处理链路底层对 'view' 存在隐式绑定依赖，必须保留
+        // 视图渲染引擎：必须保留！控制台命令渲染(Termwind/Table)与核心异常处理渲染链路底层对 'view' 存在隐式绑定依赖
         Illuminate\View\ViewServiceProvider::class,
 
         // 当前应用无全局强制启动逻辑，省去空 AppServiceProvider 加载与 boot() 调用
