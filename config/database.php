@@ -120,9 +120,7 @@ return [
                 // 彻底规避在高并发下使用外部数据库连接池(如 PgBouncer 处于事务池化模式)时
                 // 发生的 prepared statement 命名冲突与状态泄漏，确保所有查询均为单次网络往返极速执行；
                 // 兼容 PHP 8.5+ 的 Pdo\Pgsql::ATTR_DISABLE_PREPARES 与旧版本常量，使用联合操作符避免解构重排整数键
-                defined('\Pdo\Pgsql::ATTR_DISABLE_PREPARES')
-                    ? [\Pdo\Pgsql::ATTR_DISABLE_PREPARES => true]
-                    : (defined('PDO::PGSQL_ATTR_DISABLE_PREPARES') ? [constant('PDO::PGSQL_ATTR_DISABLE_PREPARES') => true] : [])
+                defined('\Pdo\Pgsql::ATTR_DISABLE_PREPARES') ? [\Pdo\Pgsql::ATTR_DISABLE_PREPARES => true] : (defined('PDO::PGSQL_ATTR_DISABLE_PREPARES') ? [constant('PDO::PGSQL_ATTR_DISABLE_PREPARES') => true] : [])
             ),
         ],
 
