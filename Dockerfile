@@ -106,10 +106,13 @@ ARG APP_BUILDING=1
 # 标记 Octane 运行模式（见 builder 阶段注释）
 ARG LARAVEL_OCTANE=1
 
-# 从 builder 层仅复制预热优化完的应用成品，剔除 Composer、Git 等重型构建工具
-COPY --from=builder  ${APP_BASE_PATH} ${APP_BASE_PATH}
+# 从 builder 层仅复制预热优化完的应用成品，剔除 Composer、Git 等重型构建工具，并赋予应用运行用户 www-data 完整属主权限
+COPY --from=builder --chown=www-data:www-data ${APP_BASE_PATH} ${APP_BASE_PATH}
 
 # OPcache 全量字节码离线编译(AOT Compile)：
 # 在容器镜像封存前，将全量业务与 vendor 代码编译为 OPcache 操作码(Bytecode)存入持久缓存；
 # 容器启动后首批请求直接命中内存中的操作码，彻底消除运行时词法与语法解析延迟，实现真正的“全热态零延迟冷启动”
-RUN if [ "${SKIP_OPCACHE_COMPILE}" = "0" ]; then php -d opcache.enable_cli=1 /data/app/artisan opcache:compile-files; fi
+RUN if [ "${SKIP_OPCACHE_COMPILE}" = "0" ]; then \
+        mkdir -p /tmp/opcache && chown -R www-data:www-data /tmp/opcache && \
+        su -s /bin/sh - www-data -c "php -d opcache.enable_cli=1 /data/app/artisan opcache:compile-files"; \
+    fi
