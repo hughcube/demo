@@ -20,6 +20,8 @@ services:
       # OPcache 配置文件
       - ./.docker/developer-opcache.ini:/usr/local/etc/php/conf.d/docker-php-ext-opcache.ini:ro
       - ./.docker/developer-opcache-blacklist.txt:/usr/local/etc/php/opcache.blacklist:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     restart: unless-stopped
     networks:
       - app
