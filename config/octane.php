@@ -423,36 +423,7 @@ return [
             'log_rotation' => 2, // SWOOLE_LOG_ROTATION_DAILY
 
             // Swoole 守护进程运行日志，统一收敛到 storage/run/，便于容器卷持久化与排查。
-            // 当 user/group 为 www-data 降权运行时，确保目录与日志文件具备 www-data 写入与轮转权限
-            'log_file' => (function () {
-                $path = storage_path('run/swoole_http.log');
-                $dir = dirname($path);
-
-                if (!is_dir($dir)) {
-                    @mkdir($dir, 0777, true);
-                }
-                @chmod($dir, 0777);
-
-                if (function_exists('posix_getpwnam')) {
-                    $u = @posix_getpwnam('www-data');
-                    if ($u) {
-                        @chown($dir, $u['uid']);
-                        @chgrp($dir, $u['gid']);
-                    }
-                }
-
-                if (!file_exists($path)) {
-                    @touch($path);
-                }
-                @chmod($path, 0666);
-
-                if (isset($u) && $u) {
-                    @chown($path, $u['uid']);
-                    @chgrp($path, $u['gid']);
-                }
-
-                return $path;
-            })(),
+            'log_file' => storage_path('run/swoole_http.log'),
         ],
     ],
 
