@@ -25,14 +25,14 @@ class PhpInfoActionTest extends TestCase
 
     public function test_phpinfo_with_invalid_token_is_forbidden(): void
     {
-        $response = $this->get('/devops/phpinfo?token=invalid_token');
+        $response = $this->get('/devops/phpinfo?X-Devops-Token=invalid_token');
         $this->assertSame('HttpError', $response->json('Code'));
         $this->assertSame('Forbidden', $response->json('Message'));
     }
 
     public function test_phpinfo_with_query_token_returns_html(): void
     {
-        $response = $this->get("/devops/phpinfo?token={$this->token}");
+        $response = $this->get("/devops/phpinfo?X-Devops-Token={$this->token}");
         $response->assertStatus(200);
         $this->assertStringContainsString('phpinfo()', strval($response->getContent()));
     }
@@ -42,5 +42,12 @@ class PhpInfoActionTest extends TestCase
         $response = $this->withHeader('X-Devops-Token', $this->token)->get('/devops/phpinfo');
         $response->assertStatus(200);
         $this->assertStringContainsString('phpinfo()', strval($response->getContent()));
+    }
+
+    public function test_healthcheck_returns_success(): void
+    {
+        $response = $this->get('/devops/healthcheck');
+        $response->assertStatus(200);
+        $this->assertSame('success', trim(strval($response->getContent())));
     }
 }
