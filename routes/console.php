@@ -12,5 +12,5 @@ Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
 
-Schedule::command(LogsRotateCommand::class)->everySecond();
-Schedule::command(LogsPruneCommand::class)->everySecond();
+Schedule::command(LogsRotateCommand::class)->dailyAt('00:00');
+Schedule::command(LogsPruneCommand::class)->dailyAt('00:01');
