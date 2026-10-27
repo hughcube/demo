@@ -1986,16 +1986,16 @@
         },
         {
             "name": "hughcube/laravel-dingtalk",
-            "version": "v1.0.5",
+            "version": "v1.2.0",
             "source": {
                 "type": "git",
-                "url": "https://github.com/hughcube-php/laravel-dingtalk.git",
-                "reference": "57860f4268eaa064bac6e0c35afcf5158c1f7512"
+                "url": "https://github.com/hughcube/laravel-dingtalk.git",
+                "reference": "e0b2f65cc40ee2c82cf3eda826b3260e00ae334b"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/hughcube-php/laravel-dingtalk/zipball/57860f4268eaa064bac6e0c35afcf5158c1f7512",
-                "reference": "57860f4268eaa064bac6e0c35afcf5158c1f7512",
+                "url": "https://api.github.com/repos/hughcube/laravel-dingtalk/zipball/e0b2f65cc40ee2c82cf3eda826b3260e00ae334b",
+                "reference": "e0b2f65cc40ee2c82cf3eda826b3260e00ae334b",
                 "shasum": ""
             },
             "require": {
@@ -2029,23 +2029,23 @@
                 }
             ],
             "support": {
-                "issues": "https://github.com/hughcube-php/laravel-dingtalk/issues",
-                "source": "https://github.com/hughcube-php/laravel-dingtalk/tree/v1.0.5"
+                "issues": "https://github.com/hughcube/laravel-dingtalk/issues",
+                "source": "https://github.com/hughcube/laravel-dingtalk/tree/v1.2.0"
             },
-            "time": "2022-12-05T02:39:12+00:00"
+            "time": "2026-10-27T10:32:20+00:00"
         },
         {
             "name": "hughcube/laravel-knight",
-            "version": "v6.0.180",
+            "version": "v6.0.181",
             "source": {
                 "type": "git",
                 "url": "https://github.com/hughcube/laravel-knight.git",
-                "reference": "ab4d847b251ed8660acfdd41599d17d4ead597b6"
+                "reference": "4599b48ac2caf21597b47c8e1721a1ebd15ed294"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/hughcube/laravel-knight/zipball/ab4d847b251ed8660acfdd41599d17d4ead597b6",
-                "reference": "ab4d847b251ed8660acfdd41599d17d4ead597b6",
+                "url": "https://api.github.com/repos/hughcube/laravel-knight/zipball/4599b48ac2caf21597b47c8e1721a1ebd15ed294",
+                "reference": "4599b48ac2caf21597b47c8e1721a1ebd15ed294",
                 "shasum": ""
             },
             "require": {
@@ -2108,9 +2108,9 @@
             "description": "A powerful Laravel extension package providing enhanced Eloquent models, query builders, caching, optimistic locking, middleware, and PostgreSQL array support.",
             "support": {
                 "issues": "https://github.com/hughcube/laravel-knight/issues",
-                "source": "https://github.com/hughcube/laravel-knight/tree/v6.0.180"
+                "source": "https://github.com/hughcube/laravel-knight/tree/v6.0.181"
             },
-            "time": "2026-10-27T09:59:36+00:00"
+            "time": "2026-10-27T10:41:22+00:00"
         },
         {
             "name": "hughcube/laravel-octane",
