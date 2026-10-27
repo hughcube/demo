@@ -94,9 +94,9 @@ return [
             'level' => 'warning',
             'handler' => \HughCube\Laravel\DingTalk\Log\Handler::class,
             'handler_with' => [
-                'enabled' => true === env('DING_TALK_ROBOT_ENABLED', true),
+                'enabled' => filter_var(env('DING_TALK_ROBOT_ENABLED', true), FILTER_VALIDATE_BOOLEAN),
                 'robot' => null,
-                'bubble' => false,
+                'bubble' => true,
             ],
         ],
 
