@@ -50,4 +50,18 @@ class PhpInfoActionTest extends TestCase
         $response->assertStatus(200);
         $this->assertSame('success', trim(strval($response->getContent())));
     }
+
+    public function test_schedule_without_token_is_forbidden(): void
+    {
+        $response = $this->get('/devops/schedule');
+        $this->assertSame('HttpError', $response->json('Code'));
+        $this->assertSame('Forbidden', $response->json('Message'));
+    }
+
+    public function test_schedule_with_valid_token_returns_success(): void
+    {
+        $response = $this->get("/devops/schedule?X-Devops-Token={$this->token}");
+        $response->assertStatus(200);
+        $this->assertSame('Success', $response->json('Code'));
+    }
 }
