@@ -2036,16 +2036,16 @@
         },
         {
             "name": "hughcube/laravel-knight",
-            "version": "v6.0.181",
+            "version": "v6.0.183",
             "source": {
                 "type": "git",
                 "url": "https://github.com/hughcube/laravel-knight.git",
-                "reference": "4599b48ac2caf21597b47c8e1721a1ebd15ed294"
+                "reference": "09ce8595b8bba3a5d5e7c546eeda107e89709d09"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/hughcube/laravel-knight/zipball/4599b48ac2caf21597b47c8e1721a1ebd15ed294",
-                "reference": "4599b48ac2caf21597b47c8e1721a1ebd15ed294",
+                "url": "https://api.github.com/repos/hughcube/laravel-knight/zipball/09ce8595b8bba3a5d5e7c546eeda107e89709d09",
+                "reference": "09ce8595b8bba3a5d5e7c546eeda107e89709d09",
                 "shasum": ""
             },
             "require": {
@@ -2108,9 +2108,9 @@
             "description": "A powerful Laravel extension package providing enhanced Eloquent models, query builders, caching, optimistic locking, middleware, and PostgreSQL array support.",
             "support": {
                 "issues": "https://github.com/hughcube/laravel-knight/issues",
-                "source": "https://github.com/hughcube/laravel-knight/tree/v6.0.181"
+                "source": "https://github.com/hughcube/laravel-knight/tree/v6.0.183"
             },
-            "time": "2026-10-27T10:41:22+00:00"
+            "time": "2026-10-27T11:37:23+00:00"
         },
         {
             "name": "hughcube/laravel-octane",

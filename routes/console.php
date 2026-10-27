@@ -12,5 +12,15 @@ Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
 
-Schedule::command(LogsRotateCommand::class)->dailyAt('00:00');
-Schedule::command(LogsPruneCommand::class)->dailyAt('00:01');
+Schedule::command(LogsRotateCommand::class, [
+    '--pattern' => ['php-error.log', 'php-opcache-error.log'],
+])->dailyAt('00:00');
+
+Schedule::command(LogsPruneCommand::class, [
+    '--days' => 30,
+    '--pattern' => [
+        '/^apache-.*-\d{4}-\d{2}-\d{2}\.log$/',
+        '/^laravel-.*-\d{4}-\d{2}-\d{2}\.log$/',
+        '/^php-.*-\d{4}-\d{2}-\d{2}\.log$/',
+    ],
+])->dailyAt('00:01');
