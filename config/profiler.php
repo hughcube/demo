@@ -1,19 +1,24 @@
 <?php
 
 use GuzzleHttp\RequestOptions;
-use HughCube\GuzzleHttp\Middleware\UseHostResolveMiddleware;
 use HughCube\Profiler\Profiler;
 use HughCube\Profiler\ProfilingFlags;
 
 return [
-    'save.handler' => Profiler::SAVER_UPLOAD,
+    /**
+     * 默认上报处理器：若未配置 PROFILER_HTTP_BASE_URI，默认降级为 file 处理器（保存至 storage/xhprof/），
+     * 避免因未配远程端点而在强开采样时发生网络连接崩溃。
+     */
+    'save.handler' => empty(env('PROFILER_HTTP_BASE_URI'))
+        ? Profiler::SAVER_FILE
+        : env('PROFILER_SAVE_HANDLER', Profiler::SAVER_UPLOAD),
 
     'save.handler.file' => [
         'file' => storage_path('xhprof/profiler.data'),
     ],
 
     'save.handler.upload' => [
-        'base_uri' => env('PROFILER_HTTP_BASE_URI', 'http://127.0.0.1:9092/api/upload'),
+        'base_uri' => env('PROFILER_HTTP_BASE_URI', null),
         RequestOptions::TIMEOUT => 30.0,
         RequestOptions::READ_TIMEOUT => 30.0,
         RequestOptions::CONNECT_TIMEOUT => 30.0,
@@ -50,7 +55,14 @@ return [
         'HTTP_X_FC_SECURITY_TOKEN',
     ])),
 
-    // 1%的采样率(max: 1000000)
-    'enable.probability' => intval(floatval(env('PROFILER_ENABLE_PROBABILITY', 0.0001)) * 1000000),
+    /**
+     * 采样率控制 (默认必须为 0，彻底关闭随机采样)：
+     * 1. 性能分析仅在需要时显式开启，默认开启会在高并发或未配收集端时造成不必要的 CPU 开销与网络异常；
+     * 2. 只有在配置了有效上报地址且显式指定 PROFILER_ENABLE_PROBABILITY 时才按概率采样 (最大值 1,000,000 代表 100%)。
+     */
+    'enable.probability' => empty(env('PROFILER_HTTP_BASE_URI'))
+        ? 0
+        : intval(floatval(env('PROFILER_ENABLE_PROBABILITY', 0)) * 1000000),
+
     'enable' => [],
 ];

@@ -36,3 +36,5 @@ tests/KRTest.php
 /storage/*.log
 /storage/pgsql/
 /storage/redis/
+
+.deploy_flow*.yaml
