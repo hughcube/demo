@@ -6,7 +6,7 @@ ARG BASE_IMAGE=crpi-j5t8nqf1b869w80g.cn-shenzhen.personal.cr.aliyuncs.com/stratu
 #########################################################################################################
 FROM ${BASE_IMAGE}-composer AS builder
 
-# composer 慧哲私有仓库的账号密码
+# composer 私有仓库的账号密码
 ARG COMPOSER_HZCUBE_USERNAME
 ARG COMPOSER_HZCUBE_PASSWORD
 
@@ -23,6 +23,11 @@ ARG LARAVEL_OCTANE=1
 # 通过 ARG 在镜像构建阶段传入，以支持不同部署环境（如测试/生产、不同 CPU/内存规格实例）构建专有镜像；
 # 在构建阶段执行 php artisan config:cache 时，将环境变量直接固化进配置缓存，消除运行期动态读取解析开销。
 ARG OCTANE_MAX_WORKERS=2
+# 单 Worker 累计处理请求上限（达到后该 Worker 优雅退出并由 Swoole Manager 重新 fork 补位）：
+# - 默认值 500：兼顾稳定性，防范业务代码中微小的全局变量/静态属性内存慢泄漏；
+# - 高吞吐调优建议：若业务已全面保障严格无状态（配合骨架内的 OCTANE_GARBAGE=128 垃圾回收），
+#   在万级 QPS 高并发生产场景下，建议通过 --build-arg OCTANE_MAX_REQUESTS=10000~50000 调大该值，
+#   以避免 Worker 进程高频重启造成的 CPU 上下文切换尖刺与 MySQL/Redis 热连接频繁重建损耗。
 ARG OCTANE_MAX_REQUESTS=500
 ARG OCTANE_MAX_TASK_WORKERS=1
 ARG OCTANE_REACTOR_NUM=1
@@ -97,8 +102,10 @@ RUN php artisan octane:prepare \
 #########################################################################################################
 FROM ${BASE_IMAGE}
 
-# 是否跳过 OPcache 预编译（dev 构建文件数过多可能导致 OOM，可传 --build-arg SKIP_OPCACHE_COMPILE=1 跳过）
-ARG SKIP_OPCACHE_COMPILE=0
+# OPcache AOT 文件落盘编译开关:
+# 读取基础镜像环境变量 OPCACHE_COMPILE_FILES (默认为 0，纯内存常驻模式)；
+# 亦支持流水线在特定场景下通过 --build-arg OPCACHE_COMPILE_FILES=1 显式开启文件落盘预编译。
+ARG OPCACHE_COMPILE_FILES
 
 # 标记构建阶段（见 builder 阶段注释）
 ARG APP_BUILDING=1
@@ -109,10 +116,15 @@ ARG LARAVEL_OCTANE=1
 # 从 builder 层仅复制预热优化完的应用成品，剔除 Composer、Git 等重型构建工具，并赋予应用运行用户 www-data 完整属主权限
 COPY --from=builder --chown=www-data:www-data ${APP_BASE_PATH} ${APP_BASE_PATH}
 
-# OPcache 全量字节码离线编译(AOT Compile)：
-# 在容器镜像封存前，将全量业务与 vendor 代码编译为 OPcache 操作码(Bytecode)存入持久缓存；
-# 容器启动后首批请求直接命中内存中的操作码，彻底消除运行时词法与语法解析延迟，实现真正的“全热态零延迟冷启动”
-RUN if [ "${SKIP_OPCACHE_COMPILE}" = "0" ]; then \
+# ==============================================================================
+# OPcache 全量字节码离线编译落盘控制 (opcache:compile-files):
+# - 纯内存常驻模式 (OPCACHE_COMPILE_FILES=0，默认/推荐):
+#   跳过落盘编译。配合 preload.php 与 JIT=1255，核心不可变类与热点机器码全部直接进驻
+#   共享内存(SHM)，彻底消灭 /tmp/opcache 磁盘 I/O，并精简 50MB~80MB 镜像推拉体积；
+# - 文件落盘编译模式 (OPCACHE_COMPILE_FILES=1):
+#   针对超低内存规格或极端 Serverless 冷启动场景，将全量类编译为 .php.bin 二进制文件固化至磁盘。
+# ==============================================================================
+RUN if [ "${OPCACHE_COMPILE_FILES:-0}" = "1" ]; then \
         mkdir -p /tmp/opcache && chown -R www-data:www-data /tmp/opcache && \
         su -s /bin/sh - www-data -c "php -d opcache.enable_cli=1 /data/app/artisan opcache:compile-files"; \
     fi

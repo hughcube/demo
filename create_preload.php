@@ -17,6 +17,8 @@ $config = [
         'App\\',
         'HughCube\\Laravel\\Knight\\',
         'HughCube\\Laravel\\Octane\\',
+        'Illuminate\\Contracts\\',
+        'Illuminate\\Container\\',
         'Illuminate\\Routing\\',
         'Illuminate\\Http\\',
         'Illuminate\\Pipeline\\',
@@ -26,6 +28,7 @@ $config = [
         'Illuminate\\Events\\',
         'Illuminate\\Cache\\',
         'Illuminate\\Validation\\',
+        'Symfony\\Component\\HttpFoundation\\',
     ],
 
     /**

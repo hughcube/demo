@@ -97,7 +97,8 @@ return [
             'prefix' => '',
             'prefix_indexes' => true,
             'search_path' => 'public',
-            'sslmode' => 'prefer',
+            // 内网 VPC/私有网络直连建议默认 disable，省去 1 次不必要的 SSL 握手探测往返(RTT)
+            'sslmode' => env('DB_PGSQL_SSLMODE', 'disable'),
             'options' => [
                 // 在 Octane / Swoole / FrankenPHP 常驻内存模式下，Worker 进程天然常驻复用数据库连接；
                 // 且在配合 PgBouncer (事务池化模式) 等外部连接池时，底层 PDO 绝不应开启持久连接，避免连接状态残留或僵死，默认关闭 false

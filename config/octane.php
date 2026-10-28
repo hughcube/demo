@@ -215,6 +215,9 @@ return [
             \Laravel\Octane\Listeners\FlushOnce::class,
             \Laravel\Octane\Listeners\FlushTemporaryContainerInstances::class,
 
+            // 【常驻连接池终极生命线】：请求终结时强制回滚所有未提交脏事务，彻底杜绝异常中断导致的跨请求事务串染与锁死
+            \HughCube\Laravel\Knight\Database\Listeners\EnsureTransactionsAreRolledBack::class,
+
             // 保持常驻连接池复用：注释掉 DisconnectFromDatabases，避免每个 HTTP 请求结束都销毁并重建数据库连接；
             // 配合 PDO::ATTR_PERSISTENT 与 wait_timeout，实现近乎零握手延迟的极速查询
             #\Laravel\Octane\Listeners\DisconnectFromDatabases::class,
@@ -350,6 +353,18 @@ return [
         #'mode' => SWOOLE_BASE,
 
         'options' => [
+            // ==============================================================================
+            // 【Swoole 极速拉起与进程拓扑架构说明】:
+            // 1. 构建期固化：本镜像在 Docker 构建阶段执行 php artisan octane:prepare，将 workers、
+            //    task_workers、max_requests 等参数序列化预写入 octane-server-state.json 状态文件中。
+            // 2. 运行时直启：容器 CMD 直接由 PHP CLI 执行 vendor/bin/swoole-server 并载入上述 state 文件。
+            //    Master 主进程在毫秒级内直接创建 Swoole\Http\Server 并完成端口监听与网络拓扑装配，
+            //    完全跳过了每次启动都要重复全量引导 Laravel 框架的探测损耗，实现极致冷启动。
+            // 3. Worker 延迟引导：框架真正的容器绑定与应用初始化延迟推迟到 OnWorkerStart 事件中进行。
+            // 4. 如需在不同规格实例（如 1C/2C/4C/8C）下调整 Worker 数量，推荐通过流水线在构建阶段注入专有
+            //    --build-arg OCTANE_MAX_WORKERS=X 构建参数实现 AOT 固化。
+            // ==============================================================================
+
             // 指定 Worker / TaskWorker 子进程降权运行的非特权用户与用户组
             'user' => 'www-data',
             'group' => 'www-data',
@@ -403,18 +418,19 @@ return [
             'tcp_keepinterval' => 10,
             'tcp_keepcount' => 3,
 
-            // CPU 核心亲和性绑定。将 Worker 进程与 Reactor 线程绑定到固定物理核心，
-            // 减少跨核心调度导致的 CPU L1/L2 高速缓存(Cache Line)失效，显著降低高并发下的 P99 尾部延迟。
-            'open_cpu_affinity' => true,
+            // CPU 核心亲和性绑定：
+            // - 独占物理机/裸机节点：设为 true 可将 Worker 绑定到固定核心，提升 L1/L2 Cache 命中率；
+            // - 容器化/K8s/多租户/Serverless(FC)：建议默认 false（交由 Linux CFS 调度器统筹调度，避免单核争抢与 CFS Throttle 限频）。
+            'open_cpu_affinity' => boolval(env('SWOOLE_CPU_AFFINITY', false)),
 
             // TCP Fast Open(TFO)。允许在三次握手阶段携带 SYN 数据包直接发起首包数据传输，消除 1 个握手 RTT 往返时延。
             // 需 Linux 内核 net.ipv4.tcp_fastopen 支持。
             #'tcp_fastopen' => true,
 
-            // 网络读写与数据包缓冲区大小。针对大 JSON 列表或图片上传，避免分段多次系统调用或爆出缓冲区溢出错误。
-            'buffer_output_size' => 32 * 1024 * 1024,
-            'socket_buffer_size' => 64 * 1024 * 1024,
-            'package_max_length' => 20 * 1024 * 1024,
+            // 网络读写与数据包缓冲区大小（针对高性能 REST API 默认收敛，防范慢连接/并发大包引发内存爆仓，支持环境变量覆盖）:
+            'buffer_output_size' => intval(env('SWOOLE_BUFFER_OUTPUT_SIZE', 8 * 1024 * 1024)),
+            'socket_buffer_size' => intval(env('SWOOLE_SOCKET_BUFFER_SIZE', 16 * 1024 * 1024)),
+            'package_max_length' => intval(env('SWOOLE_PACKAGE_MAX_LENGTH', 10 * 1024 * 1024)),
 
             // 生产环境(非Debug)仅记录严重系统异常，杜绝频繁打 trace 日志造成容器磁盘 I/O 竞争与日志刷屏。
             'log_level' => env('APP_DEBUG') ? 0 /** SWOOLE_LOG_DEBUG */ : 5 /** SWOOLE_LOG_ERROR */,
