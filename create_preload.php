@@ -28,6 +28,7 @@ $config = [
         'Illuminate\\Events\\',
         'Illuminate\\Cache\\',
         'Illuminate\\Validation\\',
+        'Illuminate\\Translation\\',
         'Symfony\\Component\\HttpFoundation\\',
     ],
 
