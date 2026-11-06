@@ -114,7 +114,17 @@ RUN set -eux; \
         echo "opcache.use_cwd=0 ; 使用绝对路径作为缓存键"; \
         echo "opcache.file_cache=/tmp/opcache ; 文件缓存目录 (持久化缓存到磁盘)"; \
         echo "opcache.file_cache_consistency_checks=0 ; 禁用文件缓存一致性检查 (提升性能)"; \
-        echo "opcache.huge_code_pages=1 ; 启用大页内存 (Huge Pages) - 配合宿主机 THP madvise"; \
+        echo "; =============================================================================="; \
+        echo "; OPcache 大页内存 (Huge Pages / huge_code_pages) 选型红线:"; \
+        echo "; 1. 原理与收益: 将 PHP 解释器自身的机器指令(Text Segment)搬移至 2MB 大页以降低 TLB Miss，"; \
+        echo ";    官方基准压测显示极端纯计算场景下 QPS 提升上限仅 2%~3%，常规 API 延时差异 <0.1ms，业务几乎无感。"; \
+        echo "; 2. 为什么在多容器混部与 Alpine 容器下坚决设为 0 (禁用):"; \
+        echo ";    - Alpine (musl libc) 内存段分布不匹配，开启必报: program section not found，启动告警污染日志;"; \
+        echo ";    - 静态大页(vm.nr_hugepages)在内核中属于硬锁定物理内存(Pinned Memory)，绝对无法被 Swap 换出！"; \
+        echo ";      在 8G 内存承载 20+ 容器、依赖 16G 虚拟内存兜底的服务器上，硬锁物理内存极易诱发整机 OOM 雪崩;"; \
+        echo ";    - Octane(Swoole)常驻内存配合 Tracing JIT(1255)与 Preload，热点代码早已常驻，大页边际收益归零。"; \
+        echo "; =============================================================================="; \
+        echo "opcache.huge_code_pages=0 ; 容器混部与防 OOM 场景下坚决禁用"; \
         echo "opcache.preload=${APP_BASE_PATH}/preload.php ; 预加载脚本 (启动时加载常用类, PHP 7.4+)"; \
         echo "opcache.preload_user=www-data ; 预加载用户 (与 Swoole Worker 降权用户严格保持一致)"; \
         echo "opcache.error_log=${LOG_PATH}/php-opcache-error.log ; opcache 错误日志"; \
