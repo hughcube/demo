@@ -114,7 +114,7 @@ RUN set -eux; \
         echo "opcache.use_cwd=0 ; 使用绝对路径作为缓存键"; \
         echo "opcache.file_cache=/tmp/opcache ; 文件缓存目录 (持久化缓存到磁盘)"; \
         echo "opcache.file_cache_consistency_checks=0 ; 禁用文件缓存一致性检查 (提升性能)"; \
-        echo "opcache.huge_code_pages=0 ; 容器内无法访问宿主机 HugePages,关闭以消除启动警告"; \
+        echo "opcache.huge_code_pages=1 ; 启用大页内存 (Huge Pages) - 配合宿主机 THP madvise"; \
         echo "opcache.preload=${APP_BASE_PATH}/preload.php ; 预加载脚本 (启动时加载常用类, PHP 7.4+)"; \
         echo "opcache.preload_user=www-data ; 预加载用户 (与 Swoole Worker 降权用户严格保持一致)"; \
         echo "opcache.error_log=${LOG_PATH}/php-opcache-error.log ; opcache 错误日志"; \
