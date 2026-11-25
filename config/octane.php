@@ -406,7 +406,7 @@ return [
 
             // TCP 监听队列最大长度(Accept 队列)。在突发高并发流量进入时防止队列溢出导致连接被丢弃或重试。
             // 需配合系统内核 net.core.somaxconn 同步调优使用。
-            'backlog' => intval(env('OCTANE_BACKLOG', 4096)),
+            'backlog' => intval(env('OCTANE_BACKLOG', 1024)),
 
             // 注意：enable_delay_receive 在 Swoole Http Server 下会导致 HTTP 协议握手死锁，必须禁用。
             #'enable_delay_receive' => false,
@@ -438,8 +438,8 @@ return [
             // 容器私有临时层随发版生命周期自然重置，无需在容器内做每日文件切分，避免切片堆积与重命名 I/O 扰动。
             #'log_rotation' => 2, // SWOOLE_LOG_ROTATION_DAILY
 
-            // Swoole 守护进程运行日志，统一收敛到 storage/run/，便于容器卷持久化与排查。
-            'log_file' => storage_path('run/swoole_http.log'),
+            // Swoole 守护进程运行日志放入 0755 非粘滞专属目录，避免宿主机 fs.protected_regular=2 与 Worker 权限冲突
+            'log_file' => '/var/log/swoole/swoole_http.log',
         ],
     ],
 

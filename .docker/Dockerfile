@@ -16,6 +16,8 @@ FROM ${BASE_IMAGE}
 
 ARG SWOOLE_VERSION="v6.2.0"
 ARG SWOOLE_HTTP_SERVER_NAME="hz"
+ARG OPCACHE_JIT=0
+ARG OPCACHE_JIT_BUFFER_SIZE=0
 
 ENV APP_BASE_PATH                   /data/app
 ENV APP_STORAGE_PATH                ${APP_BASE_PATH}/storage
@@ -81,27 +83,21 @@ RUN set -eux; \
     # 注意: 以下配置针对 Laravel Octane + Swoole,与 artisan serve 的配置要求不同
     # PHP 8.5+ 默认启用 opcache,无需手动 enable
     if ! php -m | grep -qi opcache; then docker-php-ext-enable opcache; fi; \
-    rm -rf /tmp/opcache; mkdir -p /tmp/opcache; chmod -R 0777 /tmp/opcache; \
+    rm -rf /tmp/opcache; mkdir -p /tmp/opcache; chown -R www-data:www-data /tmp/opcache; chmod 0755 /tmp/opcache; \
     rm -rf /usr/local/etc/php/conf.d/*opcache.ini; touch /usr/local/etc/php/conf.d/docker-php-ext-opcache.ini; \
     { \
         php -r "echo version_compare(PHP_VERSION, '8.5.0', '<') ? 'zend_extension=opcache' . PHP_EOL : '; PHP 8.5+ 默认内置 opcache,无需 zend_extension=opcache' . PHP_EOL;"; \
         echo "opcache.enable=1 ; 启用 opcache"; \
         echo "opcache.enable_cli=1 ; CLI 模式也启用 (适用于 Octane)"; \
         echo "; =============================================================================="; \
-        echo "; PHP 8.5 Tracing JIT 与常驻内存黄金三角配置说明:"; \
-        echo "; 1. 为什么开启 JIT=1255: C=1(启用 AVX 向量化), R=2(寄存器高效分配), T=5(动态 Tracing 热点追踪),"; \
-        echo ";    O=5(全局激进优化/内联展开)。在 Octane 长生命周期常驻进程中，热身后的路由正则匹配、"; \
-        echo ";    中间件流转、JSON 解析等高频计算直接固化为原生 CPU 汇编执行，吞吐提升 10%~20%。"; \
-        echo "; 2. 为什么必须搭配 Preload: 预加载将核心类声明为全局不可变类(Immutable Classes)，JIT 编译器"; \
-        echo ";    得以安全消除虚函数多态派发并直接执行跨函数内联，杜绝 Bailout 逆优化导致的性能抖动。"; \
-        echo "; 3. 为什么不能/不建议开启 file_cache:"; \
-        echo ";    - OPcache 磁盘缓存机制仅序列化字节码，根本无法将 CPU 原生机器码落盘;"; \
-        echo ";    - 核心类已通过 Preload 常驻内存，磁盘文件成为镜像死重(白占 50~80MB)，且毫无读写收益。"; \
+        echo "; PHP 8.5 OPcache JIT 与常驻内存基线:"; \
+        echo "; - 默认 OPCACHE_JIT=0 / OPCACHE_JIT_BUFFER_SIZE=0: 常规 I/O 型 API 兼顾 Swoole 协程稳定性，"; \
+        echo ";   同时在 8G 多容器混部下节省 64MB/容器固定码页；如需开启可通过构建参数覆盖。"; \
         echo "; =============================================================================="; \
-        echo "opcache.jit=1255 ; 启用 PHP 8.5 Tracing JIT 极致优化"; \
-        echo "opcache.jit_buffer_size=64M ; 分配 64MB JIT 原生机器码缓冲区"; \
-        echo "opcache.memory_consumption=512 ; opcache 内存大小 512MB"; \
-        echo "opcache.interned_strings_buffer=64 ; 字符串缓冲区 64MB (存储类名/函数名等)"; \
+        echo "opcache.jit=${OPCACHE_JIT} ; 默认 0（按构建参数可调）"; \
+        echo "opcache.jit_buffer_size=${OPCACHE_JIT_BUFFER_SIZE} ; 默认 0（按构建参数可调）"; \
+        echo "opcache.memory_consumption=256 ; opcache 内存大小 256MB（适配多容器混部）"; \
+        echo "opcache.interned_strings_buffer=32 ; 字符串缓冲区 32MB"; \
         echo "opcache.max_accelerated_files=100000 ; 最大缓存文件数 (建议略大于 PHP 文件总数)"; \
         echo "opcache.validate_timestamps=0 ; 禁用时间戳验证 (生产环境不检查文件修改,性能最佳)"; \
         echo "opcache.revalidate_freq=86400 ; 重新验证频率 (validate_timestamps=0 时无效)"; \
@@ -151,7 +147,7 @@ RUN set -eux; \
     # \
     # Clear \
     docker-php-source delete; pecl clear-cache || true; apk del --no-network .build-deps; \
-    rm -rf "/tmp/opcache/*" "${LOG_PATH}/*" "/tmp/pear/"; \
+    rm -rf /tmp/opcache/* ${LOG_PATH}/* /tmp/pear/*; \
     # \
     # test
     php -m
@@ -173,7 +169,8 @@ WORKDIR ${APP_BASE_PATH}
 # - error_reporting="E_ALL"       : 全量捕获异常与错误，配合常驻进程平滑记录
 # - error_log="${LOG_PATH}/..."   : 将错误统一重定向到标准持久化日志文件
 # ==============================================================================
-CMD LARAVEL_OCTANE=1 /usr/local/bin/php \
+CMD mkdir -p /var/log/swoole && touch /var/log/swoole/swoole_http.log && chown -R www-data:www-data /var/log/swoole && chmod 0755 /var/log/swoole && chmod 0664 /var/log/swoole/swoole_http.log && \
+    export LARAVEL_OCTANE=1 && exec /usr/local/bin/php \
         -d expose_php="Off" \
         -d variables_order="EGPCS" \
         -d auto_globals_jit="On" \
