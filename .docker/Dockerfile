@@ -25,8 +25,8 @@ ENV LOG_PATH                        ${APP_STORAGE_PATH}/logs
 ENV OCTANE_STATE_FILE               ${APP_STORAGE_PATH}/run/octane-server-state.json
 
 # OPcache AOT 文件落盘开关:
-# - 0 (默认/推荐): 纯共享内存常驻模式。配合 opcache.preload 与 JIT=1255，全量字节码与原生机器码
-#   直接驻留共享内存(SHM)，消减容器内 /tmp/opcache 磁盘 I/O 与权限冲突，并精简镜像体积。
+# - 0 (默认/推荐): 纯共享内存常驻模式。配合 opcache.preload 与大页代码段(huge_code_pages=1)，
+#   全量字节码直接驻留共享内存(SHM)，消减容器内 /tmp/opcache 磁盘 I/O 与权限冲突，并精简镜像体积。
 # - 1 (可选): 离线文件缓存模式。适用于短生命周期 CLI/定时任务脚本构建，在构建阶段动态开启
 #   opcache.file_cache=/tmp/opcache 并将全量代码编译为 .php.bin 固化至磁盘。
 ENV OPCACHE_COMPILE_FILES           0
@@ -82,8 +82,8 @@ RUN set -eux; \
         php -r "echo version_compare(PHP_VERSION, '8.5.0', '<') ? 'zend_extension=opcache' . PHP_EOL : '; PHP 8.5+ 默认内置 opcache,无需 zend_extension=opcache' . PHP_EOL;"; \
         echo "opcache.enable=1 ; 启用 opcache"; \
         echo "opcache.enable_cli=1 ; CLI 模式也启用 (适用于 Octane 及常驻守护进程)"; \
-        echo "opcache.jit=1255 ; Tracing JIT，高吞吐性能模式"; \
-        echo "opcache.jit_buffer_size=64M ; 64M JIT 原生机器码缓冲区"; \
+        echo "opcache.jit=disable ; 关闭 JIT，避免与 xhprof hook 及框架动态闭包多态冲突造成延迟退化"; \
+        echo "opcache.jit_buffer_size=0 ; 禁用 JIT 缓冲，消除无用元数据与退化开销 (纯数值 CLI 可通过 -d 按需开启)"; \
         echo "opcache.memory_consumption=512 ; 512MB OPcache 共享内存，充裕承载全量字节码"; \
         echo "opcache.interned_strings_buffer=64 ; 64MB 驻留字符串缓冲区"; \
         echo "opcache.max_accelerated_files=100000 ; 最大缓存文件数"; \

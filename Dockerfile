@@ -28,7 +28,7 @@ ARG OCTANE_MAX_WORKERS=2
 # - 高吞吐调优建议：若业务已全面保障严格无状态（配合骨架内的 OCTANE_GARBAGE=128 垃圾回收），
 #   在万级 QPS 高并发生产场景下，建议通过 --build-arg OCTANE_MAX_REQUESTS=10000~50000 调大该值，
 #   以避免 Worker 进程高频重启造成的 CPU 上下文切换尖刺与 MySQL/Redis 热连接频繁重建损耗。
-ARG OCTANE_MAX_REQUESTS=500
+ARG OCTANE_MAX_REQUESTS=10000
 # Swoole Task Worker 异步工作进程数（独立 OS 进程，由 Manager fork 派生）：
 # - 默认值 0：纯无状态 REST API 服务且未开启 tick 心跳时，强烈推荐设为 0！
 #   每个 Task Worker 都会完整引导一次 Laravel 框架（bootWorker），空转时白占约 20MB 物理内存(PSS)与 55MB 表面内存(RSS)；
