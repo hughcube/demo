@@ -137,13 +137,17 @@ COPY --from=builder --chown=www-data:www-data ${APP_BASE_PATH} ${APP_BASE_PATH}
 
 # ==============================================================================
 # OPcache 全量字节码离线编译落盘控制 (opcache:compile-files):
-# - 纯内存常驻模式 (OPCACHE_COMPILE_FILES=0，默认/推荐):
-#   跳过落盘编译。配合 preload.php 与 JIT=1255，核心不可变类与热点机器码全部直接进驻
-#   共享内存(SHM)，彻底消灭 /tmp/opcache 磁盘 I/O，并精简 50MB~80MB 镜像推拉体积；
-# - 文件落盘编译模式 (OPCACHE_COMPILE_FILES=1):
-#   针对超低内存规格或极端 Serverless 冷启动场景，将全量类编译为 .php.bin 二进制文件固化至磁盘。
+# - 纯内存常驻模式 (OPCACHE_COMPILE_FILES=0，默认/推荐，适用于 Octane HTTP 与开启 JIT 的常驻守护进程):
+#   不配置 file_cache，跳过落盘编译。配合 preload.php 与 JIT=1255，核心不可变类与热点机器码全部
+#   直接进驻共享内存(SHM)，彻底消灭 /tmp/opcache 磁盘 I/O 与锁竞争，并精简 50MB~80MB 镜像体积；
+# - 文件落盘编译模式 (OPCACHE_COMPILE_FILES=1，适用于定时任务/一次性队列等短生命周期 CLI):
+#   动态开启 opcache.file_cache=/tmp/opcache 并将全量类编译为 .php.bin 二进制文件固化至磁盘。
 # ==============================================================================
 RUN if [ "${OPCACHE_COMPILE_FILES:-0}" = "1" ]; then \
+        { \
+            echo "opcache.file_cache=/tmp/opcache ; 文件缓存目录 (按需启用)"; \
+            echo "opcache.file_cache_consistency_checks=0 ; 禁用文件缓存一致性检查 (提升性能)"; \
+        } >> /usr/local/etc/php/conf.d/docker-php-ext-opcache.ini && \
         mkdir -p /tmp/opcache && chown -R www-data:www-data /tmp/opcache && chmod 0755 /tmp/opcache && \
         su -s /bin/sh - www-data -c "php -d opcache.enable_cli=1 /data/app/artisan opcache:compile-files"; \
     fi
