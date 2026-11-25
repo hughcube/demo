@@ -2,7 +2,7 @@ ARG BASE_IMAGE=crpi-j5t8nqf1b869w80g.cn-shenzhen.personal.cr.aliyuncs.com/stratu
 
 
 #########################################################################################################
-#### 开发镜像镜像
+#### 开发镜像
 #########################################################################################################
 FROM ${BASE_IMAGE}
 
@@ -11,36 +11,33 @@ USER root:root
 ENV NODE_PATH "/usr/local/lib/node_modules"
 
 RUN set -eux; \
-    #
-    # Update
-    apk update; \
-    #
-    # Install build dependencies
-    apk add --no-cache --virtual .build-deps $PHPIZE_DEPS; docker-php-source extract; \
-    #
-    # Install Chokidar
-    apk add --no-cache npm; npm install -g chokidar; \
-    #
-    # Install Utils
-    apk add --no-cache \
-    vim curl subversion git wget procps busybox-extras iputils-ping apache2-utils bind-tools \
-    tcpdump tshark ngrep htop lsof iftop sysstat nmap psmisc traceroute strace \
-    gdb valgrind inotify-tools; \
-    #
-    # Install Httpstat
-    apk add --no-cache curl; \
-    apk add --no-cache python3; \
-    curl -o /usr/local/bin/httpstat https://raw.githubusercontent.com/reorx/httpstat/master/httpstat.py; \
+    # \
+    # Install developer & debug dependencies on Debian \
+    savedAptMark="$(apt-mark showmanual)"; \
+    apt-get update; \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        vim curl subversion git wget procps netcat-openbsd iputils-ping apache2-utils dnsutils \
+        tcpdump tshark ngrep htop lsof iftop sysstat nmap psmisc traceroute strace \
+        gdb valgrind inotify-tools nodejs npm python3 \
+        libpcap-dev zlib1g-dev build-essential linux-libc-dev $PHPIZE_DEPS; \
+    docker-php-source extract; \
+    # \
+    # Install Chokidar \
+    npm install -g chokidar; \
+    # \
+    # Install Httpstat \
+    curl -sfL -o /usr/local/bin/httpstat https://raw.githubusercontent.com/reorx/httpstat/master/httpstat.py; \
     chmod +x /usr/local/bin/httpstat; \
-    #
-    # Install Httpflow \
-    apk add --no-cache curl libpcap-dev zlib-dev make g++ libpcap-dev build-base gcc g++ pcre pcre-dev libc6-compat; \
-    git clone https://github.com/six-ddc/httpflow /opt/httpflow; \
-    (cd /opt/httpflow && make && make install); \
-    rm -rf /opt/httpflow; \
-    #
-    # Install Xdebug
-    apk add --no-cache linux-headers; \
+    # \
+    # Install Httpflow (Trixie 移除 libpcre3-dev 时自动跳过避免阻塞构建) \
+    if apt-cache show libpcre3-dev >/dev/null 2>&1; then \
+        DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends libpcre3-dev; \
+        git clone https://github.com/six-ddc/httpflow /opt/httpflow; \
+        (cd /opt/httpflow && make && make install); \
+        rm -rf /opt/httpflow; \
+    fi; \
+    # \
+    # Install Xdebug \
     pecl install xdebug; docker-php-ext-enable xdebug; \
     rm -rf /usr/local/etc/php/conf.d/*xdebug.ini; touch /usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini; \
     { \
@@ -57,9 +54,9 @@ RUN set -eux; \
         echo "xdebug.output_dir=${APP_STORAGE_PATH}/profiler ; 性能分析文件输出目录"; \
         echo "xdebug.profiler_output_name=xdebug.cachegrind.out.%t.%p.%R ; 文件名格式: %t (时间戳), %p (进程ID), %R (请求URI)"; \
     } > /usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini; \
-    #
+    # \
     # Clear \
-    docker-php-source delete; pecl clear-cache || true; apk del --no-network .build-deps; \
-    rm -rf "/tmp/opcache/*" "${LOG_PATH}/*"
+    docker-php-source delete; pecl clear-cache || true; \
+    rm -rf /var/lib/apt/lists/* "/tmp/opcache/*" "${LOG_PATH}/*"
 
 CMD /usr/local/bin/php ${APP_BASE_PATH}/artisan serve
