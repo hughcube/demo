@@ -131,6 +131,7 @@ RUN set -eux; \
         | awk '/=>/ { so = $(NF-1); if (index(so, "/usr/local/") == 1 || so ~ /^\(/ || so == "not") next; gsub("^/(usr/)?", "", so); printf "*%s\n", so }' \
         | sort -u \
         | while read -r pattern; do dpkg-query --search "$pattern" 2>/dev/null || true; done \
+        | grep -v '^diversion ' \
         | cut -d: -f1 \
         | sort -u \
         | xargs -r apt-mark manual; \
