@@ -144,6 +144,14 @@ COPY --from=builder --chown=www-data:www-data ${APP_BASE_PATH} ${APP_BASE_PATH}
 #   针对超低内存规格或极端 Serverless 冷启动场景，将全量类编译为 .php.bin 二进制文件固化至磁盘。
 # ==============================================================================
 RUN if [ "${OPCACHE_COMPILE_FILES:-0}" = "1" ]; then \
-        mkdir -p /tmp/opcache && chown -R www-data:www-data /tmp/opcache && \
+        mkdir -p /tmp/opcache && chown -R www-data:www-data /tmp/opcache && chmod 0755 /tmp/opcache && \
         su -s /bin/sh - www-data -c "php -d opcache.enable_cli=1 /data/app/artisan opcache:compile-files"; \
     fi
+
+# 预创建 0755 非粘滞 Swoole 日志目录与 0664 www-data 属主日志文件，避免 fs.protected_regular=2 与 Worker 权限冲突
+RUN mkdir -p /var/log/swoole && \
+    touch /var/log/swoole/swoole_http.log && \
+    chown -R www-data:www-data /var/log/swoole && \
+    chmod 0755 /var/log/swoole && \
+    chmod 0664 /var/log/swoole/swoole_http.log && \
+    chmod -R 0755 ${APP_BASE_PATH}/storage
