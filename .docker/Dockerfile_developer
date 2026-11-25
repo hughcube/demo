@@ -29,13 +29,7 @@ RUN set -eux; \
     curl -sfL -o /usr/local/bin/httpstat https://raw.githubusercontent.com/reorx/httpstat/master/httpstat.py; \
     chmod +x /usr/local/bin/httpstat; \
     # \
-    # Install Httpflow (Trixie 移除 libpcre3-dev 时自动跳过避免阻塞构建) \
-    if apt-cache show libpcre3-dev >/dev/null 2>&1; then \
-        DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends libpcre3-dev; \
-        git clone https://github.com/six-ddc/httpflow /opt/httpflow; \
-        (cd /opt/httpflow && make && make install); \
-        rm -rf /opt/httpflow; \
-    fi; \
+    # Install Httpflow (Debian 13 Trixie 已彻底移除 libpcre3-dev，保留占位与 XHProf 开发镜像一致) \
     # \
     # Install Xdebug \
     pecl install xdebug; docker-php-ext-enable xdebug; \
