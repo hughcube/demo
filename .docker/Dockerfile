@@ -1,4 +1,4 @@
-ARG BASE_IMAGE=php:8.5-cli-trixie
+ARG BASE_IMAGE=php:8.5-cli-alpine3.24
 
 
 #########################################################################################################
@@ -6,7 +6,7 @@ ARG BASE_IMAGE=php:8.5-cli-trixie
 #########################################################################################################
 FROM ${BASE_IMAGE} AS tz-builder
 
-RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends tzdata && rm -rf /var/lib/apt/lists/*
+RUN apk update && apk add --no-cache tzdata
 
 
 #########################################################################################################
@@ -25,8 +25,8 @@ ENV LOG_PATH                        ${APP_STORAGE_PATH}/logs
 ENV OCTANE_STATE_FILE               ${APP_STORAGE_PATH}/run/octane-server-state.json
 
 # OPcache AOT 文件落盘开关:
-# - 0 (默认/推荐): 纯共享内存常驻模式。配合 opcache.preload 与大页代码段(huge_code_pages=1)，
-#   全量字节码直接驻留共享内存(SHM)，消减容器内 /tmp/opcache 磁盘 I/O 与权限冲突，并精简镜像体积。
+# - 0 (默认/推荐): 纯共享内存常驻模式。配合 opcache.preload 与 jit=disable，全量字节码直接驻留
+#   共享内存(SHM)，避免 /tmp/opcache 落盘导致镜像膨胀与 cgroup 页缓存上升。
 # - 1 (可选): 离线文件缓存模式。适用于短生命周期 CLI/定时任务脚本构建，在构建阶段动态开启
 #   opcache.file_cache=/tmp/opcache 并将全量代码编译为 .php.bin 固化至磁盘。
 ENV OPCACHE_COMPILE_FILES           0
@@ -36,31 +36,24 @@ COPY --from=tz-builder /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
 RUN set -eux; \
     echo "Asia/Shanghai" > /etc/timezone; \
     # \
-    # 将 Debian 默认 www-data (33:33) 统一对齐为 82:82，与历史 Alpine 挂载卷及 compose 保持 100% 兼容 \
-    groupmod -g 82 www-data; \
-    usermod -u 82 -g 82 www-data; \
-    find / -user 33 -exec chown -h 82 {} \; 2>/dev/null || true; \
-    find / -group 33 -exec chgrp -h 82 {} \; 2>/dev/null || true; \
-    # \
-    # Install build & runtime dependencies \
-    savedAptMark="$(apt-mark showmanual)"; \
-    apt-get update; \
-    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+    # Install build & runtime dependencies (Alpine 3.24 musl) \
+    apk update; \
+    apk add --no-cache --virtual .build-deps \
+        $PHPIZE_DEPS \
+        curl-dev \
+        linux-headers \
+        openssl-dev \
+        pcre-dev \
+        pcre2-dev \
+        zlib-dev; \
+    apk add --no-cache \
         bash \
-        ca-certificates \
-        curl \
-        libbrotli-dev \
-        libcurl4-openssl-dev \
-        libgmp-dev \
-        libicu-dev \
-        libonig-dev \
-        libpcre2-dev \
+        libstdc++ \
         libpq-dev \
-        libssl-dev \
-        libstdc++6 \
+        gmp-dev \
+        icu-dev \
         libzip-dev \
-        zlib1g-dev \
-        $PHPIZE_DEPS; \
+        oniguruma-dev; \
     docker-php-source extract; \
     # \
     # Install core PHP extensions \
@@ -70,21 +63,18 @@ RUN set -eux; \
     pecl install xhprof apcu xlswriter redis; \
     docker-php-ext-enable xhprof apcu xlswriter redis; \
     # \
-    # Install / Configure Zend OPcache (方案 A: Debian 13 Trixie 纯高性能拉满版) \
+    # Install / Configure Zend OPcache (Alpine 轻量高并发基线: 512M + save_comments=1 + jit=disable) \
     if ! php -m | grep -qi opcache; then docker-php-ext-enable opcache; fi; \
     rm -rf /tmp/opcache /var/log/swoole; \
-    mkdir -p /tmp/opcache /var/log/swoole; \
-    chown -R www-data:www-data /tmp/opcache /var/log/swoole; \
-    chmod 0755 /tmp/opcache /var/log/swoole; \
+    mkdir -p /tmp/opcache /var/log/swoole "${APP_BASE_PATH}" "${LOG_PATH}"; \
     rm -rf /usr/local/etc/php/conf.d/*opcache.ini; \
-    touch /usr/local/etc/php/conf.d/docker-php-ext-opcache.ini; \
     { \
         php -r "echo version_compare(PHP_VERSION, '8.5.0', '<') ? 'zend_extension=opcache' . PHP_EOL : '; PHP 8.5+ 默认内置 opcache,无需 zend_extension=opcache' . PHP_EOL;"; \
         echo "opcache.enable=1 ; 启用 opcache"; \
         echo "opcache.enable_cli=1 ; CLI 模式也启用 (适用于 Octane 及常驻守护进程)"; \
         echo "opcache.jit=disable ; 关闭 JIT，避免与 xhprof hook 及框架动态闭包多态冲突造成延迟退化"; \
         echo "opcache.jit_buffer_size=0 ; 禁用 JIT 缓冲，消除无用元数据与退化开销 (纯数值 CLI 可通过 -d 按需开启)"; \
-        echo "opcache.memory_consumption=512 ; 512MB OPcache 共享内存，充裕承载全量字节码"; \
+        echo "opcache.memory_consumption=512 ; 512MB OPcache 共享内存，充裕承载全量字节码与注释"; \
         echo "opcache.interned_strings_buffer=64 ; 64MB 驻留字符串缓冲区"; \
         echo "opcache.max_accelerated_files=100000 ; 最大缓存文件数"; \
         echo "opcache.validate_timestamps=0 ; 禁用时间戳验证 (生产环境代码不可变)"; \
@@ -96,22 +86,18 @@ RUN set -eux; \
         echo "opcache.max_file_size=0 ; 不限制文件大小"; \
         echo "opcache.file_update_protection=0 ; 文件更新保护时间 0秒"; \
         echo "opcache.use_cwd=0 ; 使用绝对路径作为缓存键"; \
-        echo "; file_cache 仅在 OPCACHE_COMPILE_FILES=1 (短 CLI 落盘预编译) 时动态开启，避免常驻进程磁盘竞争"; \
-        echo "opcache.huge_code_pages=1 ; Debian glibc + 宿主机 THP=madvise 下启用 2MB 大页代码段"; \
+        echo "; file_cache 仅在 OPCACHE_COMPILE_FILES=1 (短 CLI 落盘预编译) 时动态开启，避免 Octane 页缓存膨胀与磁盘竞争"; \
+        echo "opcache.huge_code_pages=0 ; Alpine (musl) 禁用大页代码段，消除启动告警并控制内存锁定"; \
         echo "opcache.preload=${APP_BASE_PATH}/preload.php ; 预加载脚本"; \
         echo "opcache.preload_user=www-data ; 与 Swoole Worker 降权用户严格一致"; \
         echo "opcache.error_log=${LOG_PATH}/php-opcache-error.log ; opcache 错误日志"; \
         echo "opcache.blacklist_filename=/usr/local/etc/php/opcache.blacklist ; 黑名单文件"; \
     } > /usr/local/etc/php/conf.d/docker-php-ext-opcache.ini; \
-    # \
-    # 创建应用目录与日志文件，属主统一对齐 www-data (82:82) \
-    mkdir -p "${APP_BASE_PATH}" "${LOG_PATH}" /tmp/opcache /var/log/swoole; \
     echo "<?php " > "${APP_BASE_PATH}/preload.php"; \
-    touch /var/log/swoole/swoole_http.log; \
+    touch /var/log/swoole/swoole_http.log /usr/local/etc/php/opcache.blacklist; \
     chown -R www-data:www-data "${APP_BASE_PATH}" "${LOG_PATH}" /tmp/opcache /var/log/swoole; \
+    chmod 0755 /tmp/opcache /var/log/swoole; \
     chmod 0664 /var/log/swoole/swoole_http.log; \
-    rm -rf /usr/local/etc/php/opcache.blacklist; \
-    touch /usr/local/etc/php/opcache.blacklist; \
     # \
     # Install Swoole \
     mkdir -p /usr/src/php/ext/swoole; \
@@ -124,23 +110,13 @@ RUN set -eux; \
     docker-php-ext-install -j"$(nproc)" swoole; \
     rm -f swoole.tar.gz; \
     # \
-    # 保留运行期共享库依赖并彻底清理 dev 工具链与 apt 缓存 \
-    apt-mark auto '.*' > /dev/null; \
-    apt-mark manual $savedAptMark bash ca-certificates curl libstdc++6; \
-    ( find /usr/local/bin /usr/local/lib/php/extensions -type f \( -executable -o -name '*.so' \) -exec ldd '{}' ';' 2>/dev/null || true ) \
-        | awk '/=>/ { so = $(NF-1); if (index(so, "/usr/local/") == 1 || so ~ /^\(/ || so == "not") next; gsub("^/(usr/)?", "", so); printf "*%s\n", so }' \
-        | sort -u \
-        | while read -r pattern; do dpkg-query --search "$pattern" 2>/dev/null || true; done \
-        | grep -v '^diversion ' \
-        | cut -d: -f1 \
-        | sort -u \
-        | xargs -r apt-mark manual; \
+    # Clear build dependencies & temp caches \
     docker-php-source delete; \
     pecl clear-cache || true; \
-    apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false; \
-    rm -rf /var/lib/apt/lists/* /tmp/opcache/* "${LOG_PATH}"/* /tmp/pear/*; \
+    apk del --no-network .build-deps; \
+    rm -rf /tmp/opcache/* "${LOG_PATH}"/* /tmp/pear/*; \
     # \
-    # Verify all required extensions load cleanly with zero missing shared libs & inspect Swoole \
+    # Verify all required extensions load cleanly & inspect Swoole \
     php -r 'foreach(["pcntl","bcmath","pdo_pgsql","gmp","intl","zip","mbstring","sockets","xhprof","apcu","xlswriter","redis","swoole","Zend OPcache"] as $e){ if(!extension_loaded($e)){fwrite(STDERR,"MISSING EXT: $e\n"); exit(1);} }' && php --ri swoole
 
 WORKDIR ${APP_BASE_PATH}

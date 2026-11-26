@@ -63,51 +63,33 @@ ARG BUILD_VERSION="dev"
 
 COPY . .
 
-# 固化构建版本元数据文件(B方式)，运行期零开销读取
-RUN php -r "echo json_encode(['build_version' => getenv('BUILD_VERSION') ?: 'dev', 'build_time' => date('c')], JSON_UNESCAPED_SLASHES);" > version.json
-
-# 为后续 opcache:create-preload 准备合法 PHP 脚本起点
-RUN echo "<?php " > preload.php
-
-# 清理历史构建缓存与 Git 元数据，防止脏缓存污染与镜像层无效膨胀
-RUN rm -rf /app/bootstrap/cache/*
-RUN find /app -name '.git' | xargs rm -rf
+# 固化构建版本元数据文件、准备 preload 起点并清理历史缓存与 Git 元数据
+RUN php -r "echo json_encode(['build_version' => getenv('BUILD_VERSION') ?: 'dev', 'build_time' => date('c')], JSON_UNESCAPED_SLASHES);" > version.json && \
+    echo "<?php " > preload.php && \
+    rm -rf /app/bootstrap/cache/* && \
+    find /app -name '.git' | xargs rm -rf
 
 # 使用慧哲镜像
 #RUN composer config --global repositories.hzcube composer https://packagist.x4k.net/composer
 #RUN composer config --global --auth http-basic.packagist.x4k.net ${COMPOSER_HZCUBE_USERNAME} ${COMPOSER_HZCUBE_PASSWORD}
 
-# 生产级依赖安装：
-RUN composer install --prefer-dist --optimize-autoloader $([ "${COMPOSER_NO_DEV}" = "1" ] && echo "--no-dev") --profile
+# 生产级依赖安装与权威类映射(Classmap Authoritative)
+RUN composer install --prefer-dist --optimize-autoloader $([ "${COMPOSER_NO_DEV}" = "1" ] && echo "--no-dev") --profile && \
+    composer dump-autoload --optimize --classmap-authoritative
 
-# 权威类映射(Classmap Authoritative)：
-# - 将全部 PSR-4/PSR-0 命名空间规则扁平化转换为 classmap 绝对路径数组(O(1) 内存寻址)；
-# - 强制通知自动加载器“找不到类即不存在”，彻底杜绝运行时使用 file_exists 穿透扫描磁盘 I/O
-RUN composer dump-autoload --optimize --classmap-authoritative
+# 框架静态四大核心缓存预热(AOT) + OPcache 预加载清单生成与验证
+RUN php artisan config:clear && php artisan config:cache && \
+    php artisan event:clear && php artisan event:cache && \
+    php artisan view:clear && php artisan view:cache && \
+    php artisan route:clear && php artisan route:cache && \
+    php artisan opcache:create-preload && \
+    php preload.php
 
-# 框架静态四大核心缓存预热(AOT 提前固化)：
-# - config:cache：将几十个散落的配置文件合并为单一扁平 PHP 数组，运行时零配置解析开销
-# - event:cache：提前发现并固化所有事件监听器映射，彻底消除运行时反射推导与目录遍历
-# - view:cache：构建期完成 Blade 模板编译，杜绝首批用户请求命中时的 CPU 尖刺与磁盘写锁竞争
-# - route:cache：将路由表预编译为正则表达式分发树，实现极速路由匹配
-RUN php artisan config:clear && php artisan config:cache
-RUN php artisan event:clear && php artisan event:cache
-RUN php artisan view:clear && php artisan view:cache
-RUN php artisan route:clear && php artisan route:cache
-
-# OPcache 预加载机制：
-# - 构建期生成核心依赖类的常驻内存加载清单(preload.php)并预执行验证；
-# - 容器在 Serverless/Octane 启动时将高频核心类一次性固化到全局只读共享内存，跨 Worker 零开销共享
-RUN php artisan opcache:create-preload
-RUN php preload.php
-
-# 在本地 SQLite 跑通数据迁移，提前拦截模型、表结构定义与索引语法断层
-RUN rm -rf "${APP_BASE_PATH}/database/database.sqlite"
-RUN touch "${APP_BASE_PATH}/database/database.sqlite"
-RUN php artisan migrate --force --database=sqlite
-
-# 提前生成 Swoole 状态文件与运行描述信息，省去容器启动时的探测耗时，实现秒级拉起
-RUN php artisan octane:prepare \
+# 本地 SQLite 迁移验证并提前生成 Swoole 状态文件
+RUN rm -rf "${APP_BASE_PATH}/database/database.sqlite" && \
+    touch "${APP_BASE_PATH}/database/database.sqlite" && \
+    php artisan migrate --force --database=sqlite && \
+    php artisan octane:prepare \
         --host="0.0.0.0" \
         --port=80 \
         --workers="${OCTANE_MAX_WORKERS}" \
@@ -136,24 +118,22 @@ ARG LARAVEL_OCTANE=1
 COPY --from=builder --chown=www-data:www-data ${APP_BASE_PATH} ${APP_BASE_PATH}
 
 # ==============================================================================
-# OPcache 全量字节码离线编译落盘控制 (opcache:compile-files):
-# - 纯内存常驻模式 (OPCACHE_COMPILE_FILES=0，默认/推荐，适用于 Octane HTTP 与开启 JIT 的常驻守护进程):
-#   不配置 file_cache，跳过落盘编译。配合 preload.php 与 JIT=1255，核心不可变类与热点机器码全部
-#   直接进驻共享内存(SHM)，彻底消灭 /tmp/opcache 磁盘 I/O 与锁竞争，并精简 50MB~80MB 镜像体积；
-# - 文件落盘编译模式 (OPCACHE_COMPILE_FILES=1，适用于定时任务/一次性队列等短生命周期 CLI):
-#   动态开启 opcache.file_cache=/tmp/opcache 并将全量类编译为 .php.bin 二进制文件固化至磁盘。
+# OPcache 离线预编译(按需) + 运行目录与非粘滞 Swoole 日志权限统一初始化（单层 RUN）:
+# - 纯内存常驻模式 (OPCACHE_COMPILE_FILES=0，默认/推荐，适用于 Octane HTTP):
+#   不配置 file_cache，跳过落盘编译，配合 preload.php 常驻共享内存，精简镜像体积与页缓存；
+# - 文件落盘编译模式 (OPCACHE_COMPILE_FILES=1，适用于短生命周期 CLI/定时任务):
+#   动态开启 opcache.file_cache=/tmp/opcache 并将全量类编译为 .php.bin 固化至磁盘。
 # ==============================================================================
-RUN if [ "${OPCACHE_COMPILE_FILES:-0}" = "1" ]; then \
+RUN set -eux; \
+    if [ "${OPCACHE_COMPILE_FILES:-0}" = "1" ]; then \
         { \
             echo "opcache.file_cache=/tmp/opcache ; 文件缓存目录 (按需启用)"; \
             echo "opcache.file_cache_consistency_checks=0 ; 禁用文件缓存一致性检查 (提升性能)"; \
         } >> /usr/local/etc/php/conf.d/docker-php-ext-opcache.ini && \
         mkdir -p /tmp/opcache && chown -R www-data:www-data /tmp/opcache && chmod 0755 /tmp/opcache && \
         su -s /bin/sh - www-data -c "php -d opcache.enable_cli=1 /data/app/artisan opcache:compile-files"; \
-    fi
-
-# 预创建 0755 非粘滞 Swoole 日志目录与 0664 www-data 属主日志文件，避免 fs.protected_regular=2 与 Worker 权限冲突
-RUN mkdir -p /var/log/swoole && \
+    fi; \
+    mkdir -p /var/log/swoole && \
     touch /var/log/swoole/swoole_http.log && \
     chown -R www-data:www-data /var/log/swoole && \
     chmod 0755 /var/log/swoole && \
