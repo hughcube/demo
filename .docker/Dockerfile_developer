@@ -12,15 +12,14 @@ ENV NODE_PATH "/usr/local/lib/node_modules"
 
 RUN set -eux; \
     # \
-    # Install developer & debug dependencies on Debian \
-    savedAptMark="$(apt-mark showmanual)"; \
-    apt-get update; \
-    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-        vim curl subversion git wget procps netcat-openbsd iputils-ping apache2-utils dnsutils \
-        tcpdump tshark ngrep htop lsof iftop sysstat nmap psmisc traceroute strace \
-        gdb valgrind inotify-tools nodejs npm python3 \
-        libpcap-dev zlib1g-dev build-essential linux-libc-dev $PHPIZE_DEPS; \
+    # Update & install developer / debug tools on Alpine \
+    apk update; \
+    apk add --no-cache --virtual .build-deps $PHPIZE_DEPS make g++ gcc build-base libpcap-dev zlib-dev pcre-dev linux-headers; \
     docker-php-source extract; \
+    apk add --no-cache \
+        npm python3 vim curl subversion git wget procps busybox-extras iputils-ping apache2-utils bind-tools \
+        tcpdump tshark ngrep htop lsof iftop sysstat nmap psmisc traceroute strace \
+        gdb valgrind inotify-tools libpcap pcre libc6-compat; \
     # \
     # Install Chokidar \
     npm install -g chokidar; \
@@ -29,11 +28,14 @@ RUN set -eux; \
     curl -sfL -o /usr/local/bin/httpstat https://raw.githubusercontent.com/reorx/httpstat/master/httpstat.py; \
     chmod +x /usr/local/bin/httpstat; \
     # \
-    # Install Httpflow (Debian 13 Trixie 已彻底移除 libpcre3-dev，保留占位与 XHProf 开发镜像一致) \
+    # Install Httpflow \
+    git clone --depth=1 https://github.com/six-ddc/httpflow /opt/httpflow; \
+    (cd /opt/httpflow && make && make install); \
+    rm -rf /opt/httpflow; \
     # \
     # Install Xdebug \
     pecl install xdebug; docker-php-ext-enable xdebug; \
-    rm -rf /usr/local/etc/php/conf.d/*xdebug.ini; touch /usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini; \
+    rm -rf /usr/local/etc/php/conf.d/*xdebug.ini; \
     { \
         echo "zend_extension=xdebug"; \
         echo "xdebug.mode=debug,profile ; 运行模式: debug (单步调试), profile (性能分析), develop (增强错误输出), coverage (代码覆盖率)"; \
@@ -50,7 +52,7 @@ RUN set -eux; \
     } > /usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini; \
     # \
     # Clear \
-    docker-php-source delete; pecl clear-cache || true; \
-    rm -rf /var/lib/apt/lists/* "/tmp/opcache/*" "${LOG_PATH}/*"
+    docker-php-source delete; pecl clear-cache || true; apk del --no-network .build-deps; \
+    rm -rf "/tmp/opcache/*" "${LOG_PATH}/*" /tmp/pear/*
 
 CMD /usr/local/bin/php ${APP_BASE_PATH}/artisan serve
