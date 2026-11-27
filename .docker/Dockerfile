@@ -72,8 +72,8 @@ RUN set -eux; \
         php -r "echo version_compare(PHP_VERSION, '8.5.0', '<') ? 'zend_extension=opcache' . PHP_EOL : '; PHP 8.5+ 默认内置 opcache,无需 zend_extension=opcache' . PHP_EOL;"; \
         echo "opcache.enable=1 ; 启用 opcache"; \
         echo "opcache.enable_cli=1 ; CLI 模式也启用 (适用于 Octane 及常驻守护进程)"; \
-        echo "opcache.jit=1255 ; Tracing JIT (最高优化级别: 1255 生产模式)"; \
-        echo "opcache.jit_buffer_size=100M ; 100M JIT 机器码共享内存缓冲区"; \
+        echo "opcache.jit=disable ; 关闭 JIT，避免多态 Guard 判定与侧退出导致 Web 吞吐负优化"; \
+        echo "opcache.jit_buffer_size=0 ; 禁用 JIT 缓冲，释放共享内存，纯靠 Preload 实现极致低延迟"; \
         echo "opcache.memory_consumption=512 ; 512MB OPcache 共享内存，充裕承载全量字节码与注释"; \
         echo "opcache.interned_strings_buffer=64 ; 64MB 驻留字符串缓冲区"; \
         echo "opcache.max_accelerated_files=100000 ; 最大缓存文件数"; \

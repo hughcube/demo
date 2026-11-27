@@ -118,17 +118,17 @@ ARG LARAVEL_OCTANE=1
 COPY --from=builder --chown=www-data:www-data ${APP_BASE_PATH} ${APP_BASE_PATH}
 
 # ==============================================================================
-# OPcache JIT 启用 + 离线预编译(按需) + 运行目录与非粘滞 Swoole 日志权限统一初始化:
-# - Zend OPcache JIT: 采纳鸟哥(Laruence)/PHP 官方最佳实践，开启 tracing (1255) 追踪模式
-#   并分配 100M 共享内存机器码缓冲区，配合 Octane 常驻内存与 Preload 充分发挥热点去虚化与原生执行潜能；
+# OPcache 离线预编译(按需) + 运行目录与非粘滞 Swoole 日志权限统一初始化:
 # - 纯内存常驻模式 (OPCACHE_COMPILE_FILES=0，默认/推荐，适用于 Octane HTTP):
-#   不配置 file_cache，跳过落盘编译，配合 preload.php 常驻共享内存，精简镜像体积与页缓存；
+#   保持 JIT 关闭 (jit=disable, buffer=0)，杜绝多态 Guard Failure 与侧退出损耗；
+#   不配置 file_cache，跳过落盘编译，配合 preload.php 常驻共享内存，发挥 Zend VM 极致吞吐与低延迟；
 # - 文件落盘编译模式 (OPCACHE_COMPILE_FILES=1，适用于短生命周期 CLI/定时任务):
 #   动态开启 opcache.file_cache=/tmp/opcache 并将全量类编译为 .php.bin 固化至磁盘。
 # ==============================================================================
 RUN set -eux; \
-    sed -i 's/opcache.jit=disable/opcache.jit=1255/g' /usr/local/etc/php/conf.d/docker-php-ext-opcache.ini; \
-    sed -i 's/opcache.jit_buffer_size=0/opcache.jit_buffer_size=100M/g' /usr/local/etc/php/conf.d/docker-php-ext-opcache.ini; \
+    sed -i 's/opcache.jit=.*/opcache.jit=disable/g' /usr/local/etc/php/conf.d/docker-php-ext-opcache.ini; \
+    sed -i 's/opcache.jit_buffer_size=.*/opcache.jit_buffer_size=0/g' /usr/local/etc/php/conf.d/docker-php-ext-opcache.ini; \
+    rm -f /usr/local/etc/php/conf.d/docker-php-ext-opcache-jit.ini; \
     if [ "${OPCACHE_COMPILE_FILES:-0}" = "1" ]; then \
         { \
             echo "opcache.file_cache=/tmp/opcache ; 文件缓存目录 (按需启用)"; \
