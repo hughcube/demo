@@ -24,13 +24,6 @@ ENV LOG_PATH                        ${APP_STORAGE_PATH}/logs
 
 ENV OCTANE_STATE_FILE               ${APP_STORAGE_PATH}/run/octane-server-state.json
 
-# OPcache AOT 文件落盘开关:
-# - 0 (默认/推荐): 纯共享内存常驻模式。配合 opcache.preload 与 jit=disable，全量字节码直接驻留
-#   共享内存(SHM)，避免 /tmp/opcache 落盘导致镜像膨胀与 cgroup 页缓存上升。
-# - 1 (可选): 离线文件缓存模式。适用于短生命周期 CLI/定时任务脚本构建，在构建阶段动态开启
-#   opcache.file_cache=/tmp/opcache 并将全量代码编译为 .php.bin 固化至磁盘。
-ENV OPCACHE_COMPILE_FILES           0
-
 COPY --from=tz-builder /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
 
 RUN set -eux; \
@@ -86,7 +79,6 @@ RUN set -eux; \
         echo "opcache.max_file_size=0 ; 不限制文件大小"; \
         echo "opcache.file_update_protection=0 ; 文件更新保护时间 0秒"; \
         echo "opcache.use_cwd=0 ; 使用绝对路径作为缓存键"; \
-        echo "; file_cache 仅在 OPCACHE_COMPILE_FILES=1 (短 CLI 落盘预编译) 时动态开启，避免 Octane 页缓存膨胀与磁盘竞争"; \
         echo "opcache.huge_code_pages=0 ; Alpine (musl) 禁用大页代码段，消除启动告警并控制内存锁定"; \
         echo "opcache.preload=${APP_BASE_PATH}/preload.php ; 预加载脚本"; \
         echo "opcache.preload_user=www-data ; 与 Swoole Worker 降权用户严格一致"; \

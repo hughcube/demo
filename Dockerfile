@@ -85,7 +85,7 @@ RUN php artisan config:clear && php artisan config:cache && \
     php artisan opcache:create-preload && \
     php preload.php
 
-# 本地 SQLite 迁移验证并提前生成 Swoole 状态文件
+# 本地 SQLite 迁移验证、Swoole 状态就绪并收束 storage 运行权限
 RUN rm -rf "${APP_BASE_PATH}/database/database.sqlite" && \
     touch "${APP_BASE_PATH}/database/database.sqlite" && \
     php artisan migrate --force --database=sqlite && \
@@ -95,18 +95,14 @@ RUN rm -rf "${APP_BASE_PATH}/database/database.sqlite" && \
         --workers="${OCTANE_MAX_WORKERS}" \
         --task-workers="${OCTANE_MAX_TASK_WORKERS}" \
         --max-requests="${OCTANE_MAX_REQUESTS}" \
-        --state-file="$OCTANE_STATE_FILE"
+        --state-file="$OCTANE_STATE_FILE" && \
+    chmod -R 0755 "${APP_BASE_PATH}/storage"
 
 #########################################################################################################
 #### 阶段二：生产运行环境 (Runtime Stage)
-#### 核心目的：剥离全部构建工具，只保留极简运行产物，并完成全量字节码 AOT 离线预编译
+#### 核心目的：剥离全部构建工具，只保留极简运行产物（纯内存常驻模式，零 RUN 指令瞬时交付）
 #########################################################################################################
 FROM ${BASE_IMAGE}
-
-# OPcache AOT 文件落盘编译开关:
-# 读取基础镜像环境变量 OPCACHE_COMPILE_FILES (默认为 0，纯内存常驻模式)；
-# 亦支持流水线在特定场景下通过 --build-arg OPCACHE_COMPILE_FILES=1 显式开启文件落盘预编译。
-ARG OPCACHE_COMPILE_FILES
 
 # 标记构建阶段（见 builder 阶段注释）
 ARG APP_BUILDING=1
@@ -114,29 +110,6 @@ ARG APP_BUILDING=1
 # 标记 Octane 运行模式（见 builder 阶段注释）
 ARG LARAVEL_OCTANE=1
 
-# 从 builder 层仅复制预热优化完的应用成品，剔除 Composer、Git 等重型构建工具，并赋予应用运行用户 www-data 完整属主权限
+# 从 builder 层仅复制预热优化完的应用成品与存储目录，一步到位设定 www-data 属主与 0755 权限
 COPY --from=builder --chown=www-data:www-data ${APP_BASE_PATH} ${APP_BASE_PATH}
 
-# ==============================================================================
-# OPcache 离线预编译(按需) + 运行目录与非粘滞 Swoole 日志权限统一初始化:
-# - 纯内存常驻模式 (OPCACHE_COMPILE_FILES=0，默认/推荐，适用于 Octane HTTP):
-#   保持 JIT 关闭 (jit=disable, buffer=0)，杜绝多态 Guard Failure 与侧退出损耗；
-#   不配置 file_cache，跳过落盘编译，配合 preload.php 常驻共享内存，发挥 Zend VM 极致吞吐与低延迟；
-# - 文件落盘编译模式 (OPCACHE_COMPILE_FILES=1，适用于短生命周期 CLI/定时任务):
-#   动态开启 opcache.file_cache=/tmp/opcache 并将全量类编译为 .php.bin 固化至磁盘。
-# ==============================================================================
-RUN set -eux; \
-    if [ "${OPCACHE_COMPILE_FILES:-0}" = "1" ]; then \
-        { \
-            echo "opcache.file_cache=/tmp/opcache ; 文件缓存目录 (按需启用)"; \
-            echo "opcache.file_cache_consistency_checks=0 ; 禁用文件缓存一致性检查 (提升性能)"; \
-        } >> /usr/local/etc/php/conf.d/docker-php-ext-opcache.ini && \
-        mkdir -p /tmp/opcache && chown -R www-data:www-data /tmp/opcache && chmod 0755 /tmp/opcache && \
-        su -s /bin/sh - www-data -c "php -d opcache.enable_cli=1 /data/app/artisan opcache:compile-files"; \
-    fi; \
-    mkdir -p /var/log/swoole && \
-    touch /var/log/swoole/swoole_http.log && \
-    chown -R www-data:www-data /var/log/swoole && \
-    chmod 0755 /var/log/swoole && \
-    chmod 0664 /var/log/swoole/swoole_http.log && \
-    chmod -R 0755 ${APP_BASE_PATH}/storage
