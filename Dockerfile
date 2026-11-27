@@ -126,9 +126,6 @@ COPY --from=builder --chown=www-data:www-data ${APP_BASE_PATH} ${APP_BASE_PATH}
 #   动态开启 opcache.file_cache=/tmp/opcache 并将全量类编译为 .php.bin 固化至磁盘。
 # ==============================================================================
 RUN set -eux; \
-    sed -i 's/opcache.jit=.*/opcache.jit=disable/g' /usr/local/etc/php/conf.d/docker-php-ext-opcache.ini; \
-    sed -i 's/opcache.jit_buffer_size=.*/opcache.jit_buffer_size=0/g' /usr/local/etc/php/conf.d/docker-php-ext-opcache.ini; \
-    rm -f /usr/local/etc/php/conf.d/docker-php-ext-opcache-jit.ini; \
     if [ "${OPCACHE_COMPILE_FILES:-0}" = "1" ]; then \
         { \
             echo "opcache.file_cache=/tmp/opcache ; 文件缓存目录 (按需启用)"; \
